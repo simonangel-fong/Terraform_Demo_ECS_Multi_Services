@@ -11,6 +11,19 @@ networks:
     internal: true
 
 services:
+  fastapi:
+    container_name: fastapi
+    build:
+      context: ./fastapi/
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://app_user:postgres@pgdb:5432/app_db
+    networks:
+      - public_network
+      - private_network
+    ports:
+      - 8000:8000
+
   pgdb:
     container_name: pgdb
     build:
