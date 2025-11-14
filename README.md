@@ -9,6 +9,8 @@ docker compose up -d --build
 docker compose down -v
 ```
 
+---
+
 ## FastAPI
 
 ```sh
@@ -17,41 +19,41 @@ cd app/fastapi
 python -m venv .venv
 python.exe -m pip install --upgrade pip
 
-pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv pydantic-settings
+pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv pydantic-settings pytest pytest-asyncio httpx
 
 pip freeze > requirements.txt
 
-uvicorn app.main:app --reload
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# test
-# Create
-curl -X POST http://localhost:8000/trips -H "Content-Type: application/json" -d "{\"start_station\":\"Central station\"}"
-# {"start_time":"2025-11-12T06:12:24.727736Z","start_station":"Central station","trip_id":3}
-
-# List
-curl http://localhost:8000/trips
-# [{"start_time":"2025-11-12T05:35:05.386564Z","start_station":"Central station","trip_id":1},{"start_time":"2025-11-12T05:35:05.386564Z","start_station":"Arial station","trip_id":2}]
-
-# Get one
-curl http://localhost:8000/trips/1
-# {"start_time":"2025-11-12T05:35:05.386564Z","start_station":"Central station","trip_id":1}
-
-# Update
-curl -X PUT http://localhost:8000/trips/1 -H "Content-Type: application/json" -d "{\"start_station\":\"Union Station\"}"
-# {"start_time":"2025-11-12T06:08:46.060890Z","start_station":"Union Station","trip_id":1}
-
-# Delete
-curl -X DELETE http://localhost:8000/trips/1 -i
-# HTTP/1.1 204 No Content
-# date: Wed, 12 Nov 2025 06:00:21 GMT
-# server: uvicorn
-# content-type: application/json
+# uvicorn app.main:app --reload
+# uvicorn app.main:app --host 0.0.0.0 --port 8000
+python app/main.py
 ```
 
 ---
 
 ## CI Testing
+
+| Test               | Purpose                                                         | Duration                                 | Metrics                                                                                              |
+| ------------------ | --------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Smoke              | Verify endpoints and test harness work before heavy tests       | ~1 minute, low RPS (e.g., 5–20)          | HTTP 200s, basic correctness checks, latency, connectivity                                           |
+| Baseline / Ramp‑up | Measure steady‑state behavior at expected normal load           | 5–15 minutes, gradual ramp to target RPS | RPS, p50/p95/p99 latency, error rate, CPU, memory, DB connections                                    |
+| Spike              | Validate behavior under short, sudden load increases            | 2–5 minutes (short bursts)               | Error rate, latency spikes, request drops, autoscaling triggers                                      |
+| Stress             | Find breaking points and failure modes (push until degradation) | Until errors/resources saturate          | Max sustainable RPS, error rate, resource exhaustion, DB connection limits, thread/worker saturation |
+| Soak (Endurance)   | Detect leaks and long‑running stability issues                  | 1–4 hours (or longer) at moderate load   | Memory growth, FD/conn leak, error rate over time, latency drift, DB connection trends               |
+
+
+---
+
+### Smoke Testing
+
+```sh
+cd testing
+
+# smoke testing
+docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=test_smoke.html -v ./script:/scripts grafana/k6 run /scripts/test_smoke.js
+```
+
+
+
 
 ```sh
 cd app
@@ -120,8 +122,6 @@ docker run --rm --name k6_con --net=app_public_network -p 5665:5665 -e DOMAIN="h
 # explore capacity
 docker run --rm --name k6_con --net=app_public_network -p 5665:5665 -e ENDPOINT="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=report.html -v ./:/app k6 run script/test_capacity.js
 ```
-
-
 
 ---
 

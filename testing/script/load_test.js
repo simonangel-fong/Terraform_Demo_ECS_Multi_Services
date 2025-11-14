@@ -29,4 +29,4 @@ export default function () {
     "json array": (r) => Array.isArray(r.json()),
   });
 }
-G;
+;
