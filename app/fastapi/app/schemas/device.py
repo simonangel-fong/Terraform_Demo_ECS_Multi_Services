@@ -8,14 +8,12 @@ class DeviceBase(BaseModel):
     type: str
 
 
-class DeviceCreate(DeviceBase):
-    """Schema: creating a new device"""
-    pass
-
-
 class DeviceRead(DeviceBase):
-    """Schema: reading a device"""
+    """ 
+    Schema: Query a device (Readonly)
+    """
     id: UUID
     created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

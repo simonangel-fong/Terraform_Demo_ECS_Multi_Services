@@ -17,7 +17,7 @@ cd app/fastapi
 python -m venv .venv
 python.exe -m pip install --upgrade pip
 
-pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv
+pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv pydantic-settings
 
 pip freeze > requirements.txt
 
@@ -65,7 +65,7 @@ docker build -t k6 .
 # default test: 100rps, max 10 concurrency
 docker run --rm --name k6_con --net=app_public_network -p 5665:5665 -e DOMAIN="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=report.html -v ./:/app k6 run script/test_read.js
 
-docker run --rm --name k6_con --net=app_public_network -p 5665:5665 -e DOMAIN="http://fastapi:8000" -e RATE=1000 -e PRE_VUS=2 -e MAX_VUS=50 -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=report.html -v ./:/app k6 run script/test_read.js
+docker run --rm --name k6_con --net=app_public_network -p 5665:5665 -e DOMAIN="http://fastapi:8000" -e RATE=500 -e PRE_VUS=2 -e MAX_VUS=50 -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=report.html -v ./:/app k6 run script/test_read.js
 
 #      ✓ status is 200
 #      ✓ json array

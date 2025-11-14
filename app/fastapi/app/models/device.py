@@ -39,5 +39,12 @@ class Device(Base):
         server_default=text("now()"),               # default
     )
 
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),                   # data type
+        nullable=False,                             # not null
+        server_default=text("now()"),               # default
+    )
+
+
     def __repr__(self) -> str:
         return f"<Device id={self.id} name={self.name!r} type={self.type!r}>"

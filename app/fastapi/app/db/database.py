@@ -1,17 +1,17 @@
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    # e.g.: postgresql+asyncpg://user_name:password@pgdb:5432/database
-    "postgresql+asyncpg://app_user:postgres@localhost:5432/app_db",
-)
+from config.setting import settings
 
 # define async engine with db url
 engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
+    settings.database_url,
+    echo=settings.debug,    # enable if debug mode
     pool_pre_ping=True,
+    pool_size=20,           # persistent database connections
+    max_overflow=40,        # additional temporary connections
+    # If PostgreSQL doesn't respond within 10 seconds, the connection attempt fails
+    # Disables PostgreSQL's Just-In-Time (JIT) compilation
+    connect_args={"timeout": 10, "server_settings": {"jit": "off"}},
 )
 
 # session factory that creates async sessions when called:
@@ -28,7 +28,11 @@ async_session = async_sessionmaker(
 
 
 async def get_db():
-    ''' async database session '''
+    ''' 
+    Async database session dependency for FastAPI.
+    Yields an AsyncSession that automatically closes after use.
+    async database session 
+    '''
     # Creates an AsyncSession
     async with async_session() as session:
         yield session

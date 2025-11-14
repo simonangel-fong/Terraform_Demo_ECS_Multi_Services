@@ -38,7 +38,13 @@ services:
       context: ./fastapi/
       dockerfile: Dockerfile
     environment:
-      - DATABASE_URL=postgresql+asyncpg://app_user:postgres@pgdb:5432/app_db
+      - ENV=dev
+      - DEBUG=true
+      - DATABASE__HOST=pgdb
+      - DATABASE__PORT=5432
+      - DATABASE__DB_NAME=app_db
+      - DATABASE__USER=app_user
+      - DATABASE__PASSWORD=postgres
     networks:
       - public_network
       - private_network

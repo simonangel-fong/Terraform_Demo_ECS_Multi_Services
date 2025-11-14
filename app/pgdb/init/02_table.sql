@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS db_schema.device (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name            VARCHAR(255)    NOT NULL,
     type            VARCHAR(100)    NOT NULL,
-    created_at      TIMESTAMPTZ     NOT NULL DEFAULT now()
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- index: device.type
@@ -37,6 +38,14 @@ CREATE TABLE IF NOT EXISTS db_schema.device_position (
         REFERENCES db_schema.device (id)
         ON DELETE CASCADE
 );
+
+-- index: device_id query
+CREATE INDEX IF NOT EXISTS idx_device_position_device_id
+    ON db_schema.device_position (device_id);
+
+-- index: time query
+CREATE INDEX IF NOT EXISTS idx_device_position_ts
+    ON db_schema.device_position (ts DESC);
 
 RESET ROLE;
 
