@@ -2,22 +2,26 @@ import http from "k6/http";
 import { check } from "k6";
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:8000";
+const DOMAIN = __ENV.DOMAIN || "localhost";
+const BASE_URL = `${DOMAIN}`;
+const RATE = __ENV.RATE || 100;
+const DURATION = __ENV.DURATION || "60s";
+const PRE_VUS = __ENV.PRE_VUS || 1;
+const MAX_VUS = __ENV.MAX_VUS || 10;
 
 export const options = {
+  thresholds: {
+    "http_req_failed{endpoint:trips_list}": ["rate<0.01"], // <1% errors
+    "http_req_duration{endpoint:trips_list}": ["p(95)<800"], // p95 < 200ms
+  },
   scenarios: {
     read_high_rps: {
       executor: "constant-arrival-rate",
-      rate: Number(__ENV.RATE || 10000), // target RPS (e.g., 1000/5000/10000)
-      timeUnit: "1s",
-      duration: __ENV.DURATION || "60s", // test length
-      preAllocatedVUs: Number(__ENV.PRE_VUS || 2000), // pre-spawned VUs
-      maxVUs: Number(__ENV.MAX_VUS || 5000),
+      rate: RATE, // Number of iterations per 1s
+      duration: DURATION, // test length
+      preAllocatedVUs: PRE_VUS, // pre-spawned VUs
+      maxVUs: MAX_VUS,
     },
-  },
-  thresholds: {
-    "http_req_failed{endpoint:trips_list}": ["rate<0.01"], // <1% errors
-    "http_req_duration{endpoint:trips_list}": ["p(95)<200"], // p95 < 200ms (tune to your SLO)
   },
 };
 

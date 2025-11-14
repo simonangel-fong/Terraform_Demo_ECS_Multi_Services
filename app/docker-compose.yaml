@@ -1,5 +1,3 @@
-name: demo ecs multiple services
-
 volumes:
   pgdata:
 
@@ -11,19 +9,6 @@ networks:
     internal: true
 
 services:
-  fastapi:
-    container_name: fastapi
-    build:
-      context: ./fastapi/
-      dockerfile: Dockerfile
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://app_user:postgres@pgdb:5432/app_db
-    networks:
-      - public_network
-      - private_network
-    ports:
-      - 8000:8000
-
   pgdb:
     container_name: pgdb
     build:
@@ -46,3 +31,16 @@ services:
       timeout: 10s
       retries: 30
       start_period: 30s
+
+  fastapi:
+    container_name: fastapi
+    build:
+      context: ./fastapi/
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://app_user:postgres@pgdb:5432/app_db
+    networks:
+      - public_network
+      - private_network
+    ports:
+      - 8000:8000
