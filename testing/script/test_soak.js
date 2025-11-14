@@ -6,37 +6,51 @@ import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
 export const errorRate = new Rate("errors");
 
 const BASE = __ENV.BASE || "http://localhost:8000";
-const RATE = __ENV.RATE || 5;
-const DURATION = __ENV.DURATION || 60;
-const PRE_VU = __ENV.PRE_VU || 3;
-const MAX_VU = __ENV.MAX_VU || 10;
+
+const RATE_SOAK = Number(__ENV.RATE_SOAK) || 30;
+const DURATION_RAMP = __ENV.DURATION_RAMP || "5m"; // warmup
+const DURATION_SOAK = __ENV.DURATION_SOAK || "2h"; // long, steady load
+const PRE_VU = Number(__ENV.PRE_VU) || 10;
+const MAX_VU = Number(__ENV.MAX_VU) || 100;
 
 const DEVICE_ID = __ENV.DEVICE_ID || "11111111-1111-1111-1111-111111111111";
 
-export let options = {
+export const options = {
   thresholds: {
     errors: ["rate<0.01"],
     http_req_failed: ["rate<0.01"],
+
+    // SLO: Latency
+    "http_req_duration{endpoint:home}": ["p(95)<600", "p(99)<1200"],
+    "http_req_duration{endpoint:health_check}": ["p(95)<400", "p(99)<800"],
+    "http_req_duration{endpoint:list_device}": ["p(95)<1000", "p(99)<2000"],
+    "http_req_duration{endpoint:get_device}": ["p(95)<1500", "p(99)<2500"],
   },
 
   scenarios: {
-    smoke: {
-      executor: "constant-arrival-rate",
-      rate: RATE,
+    soak: {
+      executor: "ramping-arrival-rate",
       timeUnit: "1s",
-      duration: `${DURATION}s`,
       preAllocatedVUs: PRE_VU,
       maxVUs: MAX_VU,
+
+      startRate: 1,
+      stages: [
+        { duration: DURATION_RAMP, target: RATE_SOAK }, // Warm up
+        { duration: DURATION_SOAK, target: RATE_SOAK }, // Long, steady load
+        { duration: "2m", target: 0 }, // cool-down
+      ],
     },
   },
+
   cloud: {
-    name: "Smoke Testing",
+    name: "Soak Testing",
   },
 };
 
 export default function () {
   // url: home
-  let home_resp = http.get(`${BASE}`, {
+  const home_resp = http.get(`${BASE}`, {
     tags: { endpoint: "home" },
   });
   check(home_resp, {
@@ -44,7 +58,7 @@ export default function () {
   }) || errorRate.add(1);
 
   // url: health check
-  let health_check_resp = http.get(`${BASE}/health`, {
+  const health_check_resp = http.get(`${BASE}/health`, {
     tags: { endpoint: "health_check" },
   });
   check(health_check_resp, {
@@ -52,7 +66,7 @@ export default function () {
   }) || errorRate.add(1);
 
   // url: list devices
-  let list_device_resp = http.get(`${BASE}/devices`, {
+  const list_device_resp = http.get(`${BASE}/devices`, {
     tags: { endpoint: "list_device" },
   });
   check(list_device_resp, {
@@ -66,9 +80,9 @@ export default function () {
     },
   }) || errorRate.add(1);
 
-  // Url: get specific device
+  // url: get specific device
   if (DEVICE_ID) {
-    let device_resp = http.get(`${BASE}/devices/${DEVICE_ID}`, {
+    const device_resp = http.get(`${BASE}/devices/${DEVICE_ID}`, {
       tags: { endpoint: "get_device" },
     });
     check(device_resp, {
