@@ -1,9 +1,90 @@
 # #################################
-# CloudWatch: log group
+# IAM: ECS Task Execution Role
 # #################################
-resource "aws_cloudwatch_log_group" "log_group_db" {
-  name              = "/ecs/task/${var.project}-db"
-  retention_in_days = 7
+# assume role
+resource "aws_iam_role" "ecs_task_execution_role_db" {
+  name               = "${var.project}-task-execution-role-db"
+  assume_role_policy = data.aws_iam_policy_document.task_assume_policy.json
+
+  tags = {
+    Project = var.project
+    Role    = "ecs-task-execution-role-db"
+  }
+}
+
+# policy attachment: exec role
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy_db" {
+  role       = aws_iam_role.ecs_task_execution_role_db.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# #################################
+# IAM: ECS Task Role
+# #################################
+resource "aws_iam_role" "ecs_task_role_db" {
+  name               = "${var.project}-task-role-db"
+  assume_role_policy = data.aws_iam_policy_document.task_assume_policy.json
+
+  tags = {
+    Project = var.project
+    Role    = "ecs-task-role-db"
+  }
+}
+
+# EFS client policy
+resource "aws_iam_policy" "efs_client_policy" {
+  name = "${var.project}-efs-client-policy"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess"
+        ],
+        Resource = aws_efs_access_point.efs_ap.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_efs_client_policy" {
+  role       = aws_iam_role.ecs_task_role_db.name
+  policy_arn = aws_iam_policy.efs_client_policy.arn
+}
+
+# ##############################
+# NAT: allow DB access to Internet for pulling image
+# ##############################
+# Elastic IP
+resource "aws_eip" "eip_nat" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${var.project}-eip-nat"
+  }
+}
+
+resource "aws_nat_gateway" "nat_gw" {
+  allocation_id = aws_eip.eip_nat.id
+
+  # 1st public subnet from the map
+  subnet_id = values(aws_subnet.public)[0].id
+
+  tags = {
+    Name = "${var.project}-nat-gw"
+  }
+
+  depends_on = [aws_internet_gateway.igw]
+}
+
+# map the private route 0.0.0.0/0 via NAT
+resource "aws_route" "private_to_nat" {
+  route_table_id         = aws_default_route_table.default.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat_gw.id
 }
 
 resource "aws_security_group" "sg_db" {
@@ -31,6 +112,14 @@ resource "aws_security_group" "sg_db" {
 }
 
 # #################################
+# CloudWatch: log group
+# #################################
+resource "aws_cloudwatch_log_group" "log_group_db" {
+  name              = "/ecs/task/${var.project}-db"
+  retention_in_days = 7
+}
+
+# #################################
 # Cloud Map: allow access for db service
 # #################################
 # Create namespace within VPC
@@ -38,30 +127,6 @@ resource "aws_service_discovery_private_dns_namespace" "dns_ns_vpc" {
   name        = "${var.project}.local"
   description = "Private DNS namespace"
   vpc         = aws_vpc.vpc.id
-}
-
-# #################################
-# Cloud Map: DB service
-# This is what ECS will register tasks into
-# #################################
-# register service: db
-resource "aws_service_discovery_service" "db" {
-  name = "pgdb" # service name: pgdb.${var.project}.local
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.dns_ns_vpc.id # relate with dns namespace
-
-    dns_records {
-      type = "A"
-      ttl  = 10
-    }
-
-    routing_policy = "WEIGHTED"
-  }
-
-  health_check_custom_config {
-    failure_threshold = 1
-  }
 }
 
 # #################################
@@ -73,8 +138,8 @@ resource "aws_ecs_task_definition" "ecs_task_db" {
   network_mode             = "awsvpc"
   cpu                      = 1024
   memory                   = 4096
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn # enable exec
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role_db.arn
+  task_role_arn            = aws_iam_role.ecs_task_role_db.arn # task role
 
   volume {
     name = "pgdata"
@@ -100,12 +165,10 @@ resource "aws_ecs_service" "ecs_svc_db" {
   cluster = aws_ecs_cluster.ecs_cluster.id
 
   # task
-  task_definition = aws_ecs_task_definition.ecs_task_db.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  platform_version       = "LATEST"
-  enable_execute_command = true
+  task_definition  = aws_ecs_task_definition.ecs_task_db.arn
+  desired_count    = 1
+  launch_type      = "FARGATE"
+  platform_version = "LATEST"
 
   # network
   network_configuration {
@@ -114,10 +177,23 @@ resource "aws_ecs_service" "ecs_svc_db" {
     assign_public_ip = false # disable public ip
   }
 
-  # service discovery
-  service_registries {
-    registry_arn = aws_service_discovery_service.db.arn
+  # service connnect
+  service_connect_configuration {
+    enabled   = true
+    namespace = "${var.project}.local"
+
+    service {
+      discovery_name = "pgdb" # how other services refer to it
+      port_name      = "db"   # must match port name in db.json
+
+      client_alias {
+        port     = 5432
+        dns_name = "pgdb" # what your clients will resolve
+      }
+    }
   }
 
-  depends_on = [aws_cloudwatch_log_group.log_group_db]
+  depends_on = [
+    aws_cloudwatch_log_group.log_group_db,
+  ]
 }

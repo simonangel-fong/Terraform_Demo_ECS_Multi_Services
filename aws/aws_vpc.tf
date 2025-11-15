@@ -94,35 +94,3 @@ resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public[each.key].id
   route_table_id = aws_route_table.public.id
 }
-
-# ##############################
-# NAT: allow private access to Internet
-# ##############################
-# Elastic IP
-resource "aws_eip" "eip_nat" {
-  domain = "vpc"
-
-  tags = {
-    Name = "${var.project}-eip-nat"
-  }
-}
-
-resource "aws_nat_gateway" "nat_gw" {
-  allocation_id = aws_eip.eip_nat.id
-
-  # 1st public subnet from the map
-  subnet_id = values(aws_subnet.public)[0].id
-
-  tags = {
-    Name = "${var.project}-nat-gw"
-  }
-
-  depends_on = [aws_internet_gateway.igw]
-}
-
-# map the private route 0.0.0.0/0 via NAT
-resource "aws_route" "private_to_nat" {
-  route_table_id         = aws_default_route_table.default.id
-  destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_gw.id
-}

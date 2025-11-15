@@ -1,66 +1,42 @@
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.project}-task-execution-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Action = "sts:AssumeRole",
-        Effect = "Allow",
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_ssm_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
 # ##############################
-# ECS: EFS client policy
+# IAM: ECS Task execution role
 # ##############################
-resource "aws_iam_policy" "efs_client_policy" {
-  name = "${var.project}-efs-client-policy"
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite",
-          "elasticfilesystem:ClientRootAccess"
-        ],
-        Resource = aws_efs_access_point.efs_ap.arn
-      }
-    ]
-  })
+# assume policy
+data "aws_iam_policy_document" "task_assume_policy" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
 }
 
-resource "aws_iam_role_policy_attachment" "attach_efs_client_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = aws_iam_policy.efs_client_policy.arn
-}
 
 # #################################
 # ECS: Cluster
 # #################################
-# # Cloud Map namespace used by Service Connect
-# resource "aws_service_discovery_http_namespace" "svc_ns" {
-#   name = "${var.project}.svclocal"
-# }
-
 # cluster
 resource "aws_ecs_cluster" "ecs_cluster" {
   name = "${var.project}-cluster"
 }
 
+# #################################
+# ECS: Capacity Provider
+# #################################
+resource "aws_ecs_cluster_capacity_providers" "ecs_cap" {
+  cluster_name       = aws_ecs_cluster.ecs_cluster.name
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+
+  default_capacity_provider_strategy {
+    capacity_provider = "FARGATE"
+    base              = 1 # keep at least 1 on on-demand
+    weight            = 1
+  }
+
+  default_capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 3 # ~75% of the remainder goes to spot
+  }
+}

@@ -7,8 +7,8 @@
     "essential": true,
     "portMappings": [
       {
+        "name": "api",
         "containerPort": 8000,
-        "hostPort": 8000,
         "protocol": "tcp"
       }
     ],
@@ -22,9 +22,9 @@
       }
     },
     "environment": [
-      { "name": "ENV", "value": "dev" },
-      { "name": "DEBUG", "value": "true" },
-      { "name": "DATABASE__HOST", "value": "pgdb.demo-ecs-mul-svc.local" },
+      { "name": "ENV", "value": "prod" },
+      { "name": "DEBUG", "value": "false" },
+      { "name": "DATABASE__HOST", "value": "pgdb" },
       { "name": "DATABASE__PORT", "value": "5432" },
       { "name": "DATABASE__DB_NAME", "value": "app_db" },
       { "name": "DATABASE__USER", "value": "app_user" },
