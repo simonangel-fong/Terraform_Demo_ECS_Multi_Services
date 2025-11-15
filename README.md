@@ -44,7 +44,6 @@ docker tag fastapi simonangelfong/demo-ecs-svc-fastapi
 docker push simonangelfong/demo-ecs-svc-fastapi
 ```
 
-
 ---
 
 ## CI Testing
@@ -121,9 +120,6 @@ docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE="h
 docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_soak.html -v ./script:/scripts -v ./report:/report/ grafana/k6 run /scripts/test_soak.js
 
 ```
-
-
-
 
 ```sh
 cd app
@@ -207,3 +203,26 @@ terraform plan
 terraform apply -auto-approve
 
 ```
+
+- Test
+
+```sh
+cd testing
+
+# smoke testing
+docker run --rm --name k6_smoke -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_smoke.html -v ./script:/scripts -v ./report:/report/ grafana/k6 run /scripts/test_smoke.js
+
+# baseline(ramp-up) testing
+docker run --rm --name k6_smoke -p 5665:5665 -e BASE="https://dy3i118q2j3nb.cloudfront.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./script:/scripts -v ./report:/report/ grafana/k6 run /scripts/test_baseline.js
+
+# spike testing
+docker run --rm --name k6_smoke -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_spike.html -v ./script:/scripts -v ./report:/report/ grafana/k6 run /scripts/test_spike.js
+
+# stress testing
+docker run --rm --name k6_smoke -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./script:/scripts -v ./report:/report/ grafana/k6 run /scripts/test_stress.js
+
+# soak testing
+docker run --rm --name k6_smoke -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_soak.html -v ./script:/scripts -v ./report:/report/ grafana/k6 run /scripts/test_soak.js
+```
+
+- [AWS](./doc/aws/aws.md)

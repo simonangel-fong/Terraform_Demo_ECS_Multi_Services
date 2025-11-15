@@ -61,3 +61,7 @@ variable "vpc_private_subnets" {
     }
   }
 }
+
+variable "dns_domain" {
+  default = "arguswatcher.net"
+}

@@ -84,40 +84,14 @@ resource "aws_subnet" "public" {
 # Route Table Associations
 # ##############################
 resource "aws_route_table_association" "default" {
-  for_each       = var.vpc_public_subnets
-  subnet_id      = aws_subnet.public[each.key].id
+  for_each       = var.vpc_private_subnets
+  subnet_id      = aws_subnet.private[each.key].id
   route_table_id = aws_default_route_table.default.id
 }
 
 resource "aws_route_table_association" "public" {
-  for_each       = var.vpc_private_subnets
-  subnet_id      = aws_subnet.private[each.key].id
+  for_each       = var.vpc_public_subnets
+  subnet_id      = aws_subnet.public[each.key].id
   route_table_id = aws_route_table.public.id
 }
 
-# # ##############################
-# # Security Group
-# # ##############################
-# resource "aws_security_group" "sg_app" {
-#   name        = "${var.project}-sg-app"
-#   description = "App security group"
-#   vpc_id      = aws_vpc.vpc.id
-
-#   ingress {
-#     from_port       = 8000
-#     to_port         = 8000
-#     protocol        = "tcp"
-#     security_groups = [aws_security_group.sg_lb.id] # limit source: sg_lb
-#   }
-
-#   egress {
-#     from_port   = 0
-#     to_port     = 0
-#     protocol    = "-1"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-
-#   tags = {
-#     Name = "${var.project}-sg-app"
-#   }
-# }

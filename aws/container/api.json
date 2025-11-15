@@ -16,7 +16,7 @@
       "logDriver": "awslogs",
       "options": {
         "awslogs-create-group": "true",
-        "awslogs-group": "/ecs/task/demo-ecs-mul-svc-fastapi",
+        "awslogs-group": "/ecs/task/demo-ecs-mul-svc-api",
         "awslogs-region": "ca-central-1",
         "awslogs-stream-prefix": "ecs"
       }

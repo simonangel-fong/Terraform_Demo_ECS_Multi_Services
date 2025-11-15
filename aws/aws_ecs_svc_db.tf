@@ -15,7 +15,7 @@ resource "aws_security_group" "sg_db" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.sg_app.id] # limit source: sg_app
+    security_groups = [aws_security_group.sg_api.id] # limit source: sg_api
   }
 
   egress {
@@ -26,7 +26,7 @@ resource "aws_security_group" "sg_db" {
   }
 
   tags = {
-    Name = "${var.project}-sg-db"
+    Name = "${var.project}-sg-api"
   }
 }
 
@@ -78,7 +78,8 @@ resource "aws_ecs_service" "ecs_svc_db" {
   network_configuration {
     security_groups  = [aws_security_group.sg_db.id]
     subnets          = [for subnet in aws_subnet.private : subnet.id]
-    assign_public_ip = false # disable public ip
+    assign_public_ip = true # disable public ip
+    # assign_public_ip = false # disable public ip
   }
 
   depends_on = [aws_cloudwatch_log_group.log_group_db]

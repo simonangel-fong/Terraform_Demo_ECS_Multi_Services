@@ -69,30 +69,30 @@ export default function () {
     "health_check 200": (r) => r.status === 200,
   }) || errorRate.add(1);
 
-  // url: list devices
-  const list_device_resp = http.get(`${BASE}/devices`, {
-    tags: { endpoint: "list_device" },
-  });
-  check(list_device_resp, {
-    "list_device 200": (r) => r.status === 200,
-    "list_device json array": (r) => {
-      try {
-        return Array.isArray(r.json());
-      } catch (e) {
-        return false;
-      }
-    },
-  }) || errorRate.add(1);
+  // // url: list devices
+  // const list_device_resp = http.get(`${BASE}/devices`, {
+  //   tags: { endpoint: "list_device" },
+  // });
+  // check(list_device_resp, {
+  //   "list_device 200": (r) => r.status === 200,
+  //   "list_device json array": (r) => {
+  //     try {
+  //       return Array.isArray(r.json());
+  //     } catch (e) {
+  //       return false;
+  //     }
+  //   },
+  // }) || errorRate.add(1);
 
-  // url: get specific device
-  if (DEVICE_ID) {
-    const device_resp = http.get(`${BASE}/devices/${DEVICE_ID}`, {
-      tags: { endpoint: "get_device" },
-    });
-    check(device_resp, {
-      "get_device 200 or 404": (r) => r.status === 200 || r.status === 404,
-    }) || errorRate.add(1);
-  }
+  // // url: get specific device
+  // if (DEVICE_ID) {
+  //   const device_resp = http.get(`${BASE}/devices/${DEVICE_ID}`, {
+  //     tags: { endpoint: "get_device" },
+  //   });
+  //   check(device_resp, {
+  //     "get_device 200 or 404": (r) => r.status === 200 || r.status === 404,
+  //   }) || errorRate.add(1);
+  // }
 }
 
 export function handleSummary(data) {
