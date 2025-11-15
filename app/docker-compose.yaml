@@ -11,9 +11,11 @@ networks:
 services:
   pgdb:
     container_name: pgdb
-    build:
-      context: ./pgdb/
-      dockerfile: Dockerfile
+    image: simonangelfong/demo-ecs-svc-pgdb
+    # image: pgdb
+    # build:
+    #   context: ./pgdb/
+    #   dockerfile: Dockerfile
     environment:
       POSTGRES_DB: app_db
       POSTGRES_USER: postgres
@@ -34,9 +36,11 @@ services:
 
   fastapi:
     container_name: fastapi
-    build:
-      context: ./fastapi/
-      dockerfile: Dockerfile
+    image: simonangelfong/demo-ecs-svc-fastapi
+    # image: fastapi
+    # build:
+      # context: ./fastapi/
+      # dockerfile: Dockerfile
     environment:
       - ENV=dev
       - DEBUG=true

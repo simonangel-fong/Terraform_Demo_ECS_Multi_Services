@@ -3,10 +3,14 @@
 ## Postgresql
 
 ```sh
-cd app/pgdb
+cd app
 
-docker compose up -d --build
+docker build -t pgdb ./pgdb
 docker compose down -v
+docker compose up -d --build
+docker tag pgdb simonangelfong/demo-ecs-svc-pgdb
+docker push simonangelfong/demo-ecs-svc-pgdb
+
 ```
 
 ---
@@ -27,6 +31,19 @@ pip freeze > requirements.txt
 # uvicorn app.main:app --host 0.0.0.0 --port 8000
 python app/main.py
 ```
+
+- Docker
+
+```sh
+cd app
+
+docker build -t fastapi ./fastapi
+docker compose down -v
+docker compose up -d --build
+docker tag fastapi simonangelfong/demo-ecs-svc-fastapi
+docker push simonangelfong/demo-ecs-svc-fastapi
+```
+
 
 ---
 
@@ -184,4 +201,9 @@ docker run --rm --name k6_con --net=app_public_network -p 5665:5665 -e ENDPOINT=
 cd aws
 
 terraform init -backend-config=backend.config
+terraform fmt && terraform validate
+
+terraform plan
+terraform apply -auto-approve
+
 ```

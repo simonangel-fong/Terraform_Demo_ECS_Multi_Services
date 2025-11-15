@@ -1,0 +1,34 @@
+[
+  {
+    "name": "fastapi",
+    "image": "simonangelfong/demo-ecs-svc-fastapi",
+    "cpu": 512,
+    "memory": 1024,
+    "essential": true,
+    "portMappings": [
+      {
+        "containerPort": 8000,
+        "hostPort": 8000,
+        "protocol": "tcp"
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-create-group": "true",
+        "awslogs-group": "/ecs/task/demo-ecs-mul-svc-fastapi",
+        "awslogs-region": "ca-central-1",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "environment": [
+      { "name": "ENV", "value": "dev" },
+      { "name": "DEBUG", "value": "true" },
+      { "name": "DATABASE__HOST", "value": "pgdb" },
+      { "name": "DATABASE__PORT", "value": "5432" },
+      { "name": "DATABASE__DB_NAME", "value": "app_db" },
+      { "name": "DATABASE__USER", "value": "app_user" },
+      { "name": "DATABASE__PASSWORD", "value": "postgres" }
+    ]
+  }
+]

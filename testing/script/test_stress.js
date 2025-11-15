@@ -16,8 +16,11 @@ const DEVICE_ID = __ENV.DEVICE_ID || "11111111-1111-1111-1111-111111111111";
 export const options = {
   // thresholds
   thresholds: {
-    http_req_failed: ["rate<0.80"], // allow up to 80% failures "disaster"
-    errors: ["rate<0.80"],
+    checks: ["rate>0.99"], // 99% of checks must pass
+    http_req_failed: [
+      { threshold: "rate<0.80", abortOnFail: true }, // allow up to 80% failures "disaster"; abort when fail
+    ],
+    // errors: ["rate<0.80"],
   },
 
   scenarios: {

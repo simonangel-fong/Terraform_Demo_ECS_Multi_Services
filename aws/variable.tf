@@ -1,7 +1,7 @@
 # ##############################
 # APP
 # ##############################
-variable "project" { default = "demo-ecs-postgres" }
+variable "project" { default = "demo-ecs-mul-svc" }
 
 # ##############################
 # AWS

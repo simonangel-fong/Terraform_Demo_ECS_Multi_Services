@@ -1,0 +1,45 @@
+[
+  {
+    "name": "pgdb",
+    "image": "simonangelfong/demo-ecs-svc-pgdb",
+    "user": "999:999",
+    "cpu": 1024,
+    "memory": 4096,
+    "essential": true,
+    "portMappings": [
+      {
+        "containerPort": 5432,
+        "hostPort": 5432,
+        "protocol": "tcp"
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-create-group": "true",
+        "awslogs-group": "/ecs/task/demo-ecs-mul-svc-pgdb",
+        "awslogs-region": "ca-central-1",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "environment": [
+      { "name": "POSTGRES_USER", "value": "postgres" },
+      { "name": "POSTGRES_DB", "value": "app_db" },
+      { "name": "POSTGRES_PASSWORD", "value": "postgres" }
+    ],
+    "mountPoints": [
+      {
+        "sourceVolume": "pgdata",
+        "containerPath": "/var/lib/postgresql/data",
+        "readOnly": false
+      }
+    ],
+    "healthCheck": {
+      "command": ["CMD-SHELL", "pg_isready -U postgres -d app_db || exit 1"],
+      "interval": 30,
+      "timeout": 10,
+      "retries": 10,
+      "startPeriod": 30
+    }
+  }
+]
