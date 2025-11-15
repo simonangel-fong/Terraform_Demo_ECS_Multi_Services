@@ -1,7 +1,7 @@
 [
   {
     "name": "fastapi",
-    "image": "simonangelfong/demo-ecs-svc-fastapi",
+    "image": "099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/api:latest",
     "cpu": 512,
     "memory": 1024,
     "essential": true,
@@ -24,7 +24,7 @@
     "environment": [
       { "name": "ENV", "value": "dev" },
       { "name": "DEBUG", "value": "true" },
-      { "name": "DATABASE__HOST", "value": "pgdb" },
+      { "name": "DATABASE__HOST", "value": "pgdb.demo-ecs-mul-svc.local" },
       { "name": "DATABASE__PORT", "value": "5432" },
       { "name": "DATABASE__DB_NAME", "value": "app_db" },
       { "name": "DATABASE__USER", "value": "app_user" },

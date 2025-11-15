@@ -26,10 +26,43 @@ resource "aws_security_group" "sg_db" {
   }
 
   tags = {
-    Name = "${var.project}-sg-api"
+    Name = "${var.project}-sg-db"
   }
 }
 
+# #################################
+# Cloud Map: allow access for db service
+# #################################
+# Create namespace within VPC
+resource "aws_service_discovery_private_dns_namespace" "dns_ns_vpc" {
+  name        = "${var.project}.local"
+  description = "Private DNS namespace"
+  vpc         = aws_vpc.vpc.id
+}
+
+# #################################
+# Cloud Map: DB service
+# This is what ECS will register tasks into
+# #################################
+# register service: db
+resource "aws_service_discovery_service" "db" {
+  name = "pgdb" # service name: pgdb.${var.project}.local
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.dns_ns_vpc.id # relate with dns namespace
+
+    dns_records {
+      type = "A"
+      ttl  = 10
+    }
+
+    routing_policy = "WEIGHTED"
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
 
 # #################################
 # ECS: Task Definition
@@ -78,8 +111,12 @@ resource "aws_ecs_service" "ecs_svc_db" {
   network_configuration {
     security_groups  = [aws_security_group.sg_db.id]
     subnets          = [for subnet in aws_subnet.private : subnet.id]
-    assign_public_ip = true # disable public ip
-    # assign_public_ip = false # disable public ip
+    assign_public_ip = false # disable public ip
+  }
+
+  # service discovery
+  service_registries {
+    registry_arn = aws_service_discovery_service.db.arn
   }
 
   depends_on = [aws_cloudwatch_log_group.log_group_db]
