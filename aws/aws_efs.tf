@@ -44,7 +44,7 @@ resource "aws_efs_file_system" "efs" {
 # EFS Mount Target
 # ##############################
 resource "aws_efs_mount_target" "efs_mt" {
-  for_each = aws_subnet.subnets
+  for_each = aws_subnet.private
 
   file_system_id  = aws_efs_file_system.efs.id
   subnet_id       = each.value.id

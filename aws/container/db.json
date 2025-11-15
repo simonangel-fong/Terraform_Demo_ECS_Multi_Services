@@ -17,7 +17,7 @@
       "logDriver": "awslogs",
       "options": {
         "awslogs-create-group": "true",
-        "awslogs-group": "/ecs/task/demo-ecs-mul-svc-pgdb",
+        "awslogs-group": "/ecs/task/demo-ecs-mul-svc-db",
         "awslogs-region": "ca-central-1",
         "awslogs-stream-prefix": "ecs"
       }
