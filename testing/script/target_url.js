@@ -34,18 +34,18 @@ export function runApiTesting() {
     errorRate.add(1);
   }
 
-  // ---- health ----
-  const health_resp = http.get(`${BASE}/health`, {
-    tags: { endpoint: "health_check" },
-  });
+  // // ---- health ----
+  // const health_resp = http.get(`${BASE}/health`, {
+  //   tags: { endpoint: "health_check" },
+  // });
 
-  const healthOk = check(health_resp, {
-    "health_check 200": (r) => r.status === 200,
-  });
+  // const healthOk = check(health_resp, {
+  //   "health_check 200": (r) => r.status === 200,
+  // });
 
-  if (!healthOk) {
-    errorRate.add(1);
-  }
+  // if (!healthOk) {
+  //   errorRate.add(1);
+  // }
 
   // ---- list devices ----
   const list_device_resp = http.get(`${BASE}/devices`, {

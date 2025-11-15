@@ -27,9 +27,8 @@ async def root() -> dict[str, str]:
     """ Home """
     return {
         "message": "API is running",
-        "debug": str(settings.debug),
         "env": settings.env,
-        "db_url": settings.database_url,
+        "debug": str(settings.debug),
     }
 
 
@@ -47,8 +46,8 @@ async def list_devices(db: AsyncSession = Depends(get_db)) -> list[DeviceRead]:
         devices = result.scalars().all()
         logger.info(f"Retrieved {len(devices)} devices")
         return devices
-    except Exception as e:
-        logger.error(f"Error listing devices: {str(e)}")
+    except Exception:
+        logger.exception("Error listing devices")
         raise HTTPException(status_code=500, detail="Failed to list devices")
 
 
@@ -59,7 +58,7 @@ async def get_device(device_id: str, db: AsyncSession = Depends(get_db)) -> Devi
         result = await db.execute(select(Device).where(Device.id == device_id))
         device = result.scalar_one_or_none()
 
-        # When device if no found
+        # When device if not found
         if not device:
             logger.warning(f"Device not found: {device_id}")
             raise HTTPException(status_code=404, detail="Device not found")

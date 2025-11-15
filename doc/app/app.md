@@ -5,12 +5,12 @@
 - [Terraform Demo: ECS Multi-services - Application](#terraform-demo-ecs-multi-services---application)
 - [Postgresql](#postgresql)
   - [!Database design](#database-design)
-  - [Develop with Docker](#develop-with-docker)
+  - [Develop with Docker Compose](#develop-with-docker-compose)
   - [Push to DockerHub](#push-to-dockerhub)
   - [Push to ECR](#push-to-ecr)
 - [FastAPI](#fastapi)
   - [Create Project Env](#create-project-env)
-  - [Develop with Docker](#develop-with-docker-1)
+  - [Develop with Docker](#develop-with-docker)
   - [Push to DockerHub](#push-to-dockerhub-1)
   - [Push to ECR](#push-to-ecr-1)
 
@@ -22,13 +22,11 @@
 
 !Table
 
-### Develop with Docker
+### Develop with Docker Compose
 
 ```sh
-cd app
-
-docker build -t pgdb ./pgdb
-docker run --name pgdb -p 5432:5432 pgdb
+docker compose -f ./app/docker-compose.yaml down -v
+docker compose -f ./app/docker-compose.yaml up -d --build
 ```
 
 ### Push to DockerHub
