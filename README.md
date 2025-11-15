@@ -1,6 +1,5 @@
-# Terraform Demo: ECS(Fargate) - Multiple Services
+# Terraform Demo: ECS Multiple Services - Postgresql + FastAPI
 
-
-- [App](./app.md)
-- [AWS](./aws.md)
-- [k6](./testing.md)
+- [App](./doc/app/app.md)
+- [AWS](./doc/aws/aws.md)
+- [Testing](./doc/testing/testing.md)

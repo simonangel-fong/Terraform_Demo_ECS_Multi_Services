@@ -1,19 +1,16 @@
-import http from "k6/http";
-import { check } from "k6";
-import { Rate } from "k6/metrics";
+// test_smoke.js
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
+import { runApiTesting, errorRate } from "./target_url.js";
 
-export const errorRate = new Rate("errors");
+const RATE = Number(__ENV.RATE) || 5;
+const DURATION = Number(__ENV.DURATION) || 60;
+const PRE_VU = Number(__ENV.PRE_VU) || 3;
+const MAX_VU = Number(__ENV.MAX_VU) || 10;
 
-const BASE = __ENV.BASE || "http://localhost:8000";
-const RATE = __ENV.RATE || 5;
-const DURATION = __ENV.DURATION || 60;
-const PRE_VU = __ENV.PRE_VU || 3;
-const MAX_VU = __ENV.MAX_VU || 10;
-
-const DEVICE_ID = __ENV.DEVICE_ID || "11111111-1111-1111-1111-111111111111";
-
-export let options = {
+export const options = {
+  cloud: {
+    name: "Smoke Testing",
+  },
   thresholds: {
     errors: ["rate<0.01"],
     http_req_failed: ["rate<0.01"],
@@ -23,63 +20,21 @@ export let options = {
     smoke: {
       executor: "constant-arrival-rate",
       rate: RATE,
-      timeUnit: "1s",
       duration: `${DURATION}s`,
+      timeUnit: "1s",
       preAllocatedVUs: PRE_VU,
       maxVUs: MAX_VU,
     },
   },
-  cloud: {
-    name: "Smoke Testing",
-  },
 };
 
 export default function () {
-  // url: home
-  let home_resp = http.get(`${BASE}`, {
-    tags: { endpoint: "home" },
-  });
-  check(home_resp, {
-    "home 200": (r) => r.status === 200,
-  }) || errorRate.add(1);
-
-  // url: health check
-  let health_check_resp = http.get(`${BASE}/health`, {
-    tags: { endpoint: "health_check" },
-  });
-  check(health_check_resp, {
-    "health_check 200": (r) => r.status === 200,
-  }) || errorRate.add(1);
-
-  //   // url: list devices
-  //   let list_device_resp = http.get(`${BASE}/devices`, {
-  //     tags: { endpoint: "list_device" },
-  //   });
-  //   check(list_device_resp, {
-  //     "list_device 200": (r) => r.status === 200,
-  //     "list_device json array": (r) => {
-  //       try {
-  //         return Array.isArray(r.json());
-  //       } catch (e) {
-  //         return false;
-  //       }
-  //     },
-  //   }) || errorRate.add(1);
-
-  //   // Url: get specific device
-  //   if (DEVICE_ID) {
-  //     let device_resp = http.get(`${BASE}/devices/${DEVICE_ID}`, {
-  //       tags: { endpoint: "get_device" },
-  //     });
-  //     check(device_resp, {
-  //       "get_device 200 or 404": (r) => r.status === 200 || r.status === 404,
-  //     }) || errorRate.add(1);
-  //   }
+  runApiTesting();
 }
 
 export function handleSummary(data) {
   return {
-    "summary.json": JSON.stringify(data, null, 2),
+    "summary_smoke.json": JSON.stringify(data, null, 2),
     stdout: textSummary(data, { indent: " ", enableColors: true }),
   };
 }

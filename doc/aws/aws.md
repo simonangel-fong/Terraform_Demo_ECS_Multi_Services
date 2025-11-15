@@ -1,9 +1,11 @@
-## Terraform Demo: ECS Multi-services - AWS Infrastructure
+# Terraform Demo: ECS Multi-services - AWS Infrastructure
 
-[Back](./README.md)
+[Back](../../README.md)
 
 - [Terraform Demo: ECS Multi-services - AWS Infrastructure](#terraform-demo-ecs-multi-services---aws-infrastructure)
-- [Terraform - AWS](#terraform---aws)
+  - [Terraform - AWS](#terraform---aws)
+
+---
 
 ## Terraform - AWS
 
