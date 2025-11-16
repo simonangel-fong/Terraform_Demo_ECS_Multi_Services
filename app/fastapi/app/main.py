@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Device Tracking API")
 
 
-@app.get("/healthz")
-async def healthz():
+@app.get("/health")
+async def health():
     return {"status": "ok"}
 
 
@@ -90,13 +90,11 @@ async def list_devices(
 @app.get("/devices/info", response_model=DeviceGet)
 async def get_device_by_name_and_type(
     name: str = Query(
-        ...,
         min_length=1,
         max_length=255,
         description="Device name",
     ),
     device_type: str = Query(
-        ...,
         min_length=1,
         max_length=100,
         alias="type",  # frontend still uses ?type=sensor

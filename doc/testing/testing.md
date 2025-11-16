@@ -66,6 +66,7 @@
 
 ```sh
 # start service
+docker compose -f app/docker-compose.yaml down -v
 docker compose -f app/docker-compose.yaml up -d --build
 
 # smoke testing
@@ -90,7 +91,7 @@ docker run --rm --name k6_soak --net=app_public_network -p 5665:5665 -e BASE="ht
 
 ```sh
 # smoke testing
-docker run --rm --name k6_smoke -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/aws_test_smoke.html -v ./testing/script:/script -v ./testing/report:/report/ grafana/k6 run /script/test_smoke.js
+docker run --rm --name k6_smoke -p 5665:5665 -e BASE=https://demo-ecs-mul-svc.arguswatcher.net -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/aws_test_smoke.html -v ./testing/script:/script -v ./testing/report:/report/ grafana/k6 run /script/test_smoke.js
 
 # baseline(ramp-up) testing
 docker run --rm --name k6_baseline -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./testing/script:/scripts -v ./testing/report:/report/ grafana/k6 run /scripts/test_baseline.js

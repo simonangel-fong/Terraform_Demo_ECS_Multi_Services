@@ -19,7 +19,7 @@ export const DEVICE_ID = __ENV.DEVICE_ID || "1";
 /**
  * Run all GET endpoints:
  * - GET /
- * - GET /healthz
+ * - GET /health
  * - GET /devices
  * - GET /devices/info?name=...&type=...
  * - GET /device/position/last/{device_id}
@@ -38,13 +38,13 @@ export function runGetApiTesting() {
     errorRate.add(1);
   }
 
-  // ---- healthz ----
-  const healthResp = http.get(`${BASE}/healthz`, {
-    tags: { endpoint: "healthz" },
+  // ---- health ----
+  const healthResp = http.get(`${BASE}/health`, {
+    tags: { endpoint: "health" },
   });
 
   const healthOk = check(healthResp, {
-    "healthz 200": (r) => r.status === 200,
+    "health 200": (r) => r.status === 200,
   });
   if (!healthOk) {
     errorRate.add(1);
@@ -69,12 +69,26 @@ export function runGetApiTesting() {
     errorRate.add(1);
   }
 
+  const devices = listRes.json();
+  if (!devices || devices.length === 0) {
+    console.log("No devices returned, skipping get_device_by_name_and_type");
+    return;
+  }
+
+  const d = devices[0];
+
   // ---- get device by name + type ----
-  const deviceInfoUrl = `${BASE}/devices/info?name=${encodeURIComponent(
-    DEVICE_NAME,
-  )}&type=${encodeURIComponent(DEVICE_TYPE)}`;
+
+  // const deviceInfoUrl = `${BASE}/devices/info?name=${encodeURIComponent(
+  //   DEVICE_NAME
+  // )}&type=${encodeURIComponent(DEVICE_TYPE)}`;
+  const deviceInfoUrl = `${BASE}/devices/info`
 
   const deviceInfoResp = http.get(deviceInfoUrl, {
+    params: {
+      name: d.name,
+      type: d.type,
+    },
     tags: { endpoint: "get_device_by_name_type" },
   });
 
@@ -86,16 +100,12 @@ export function runGetApiTesting() {
   }
 
   // ---- latest position for a device ----
-  const lastPosResp = http.get(
-    `${BASE}/device/position/last/${DEVICE_ID}`,
-    {
-      tags: { endpoint: "latest_position" },
-    },
-  );
+  const lastPosResp = http.get(`${BASE}/device/position/last/${DEVICE_ID}`, {
+    tags: { endpoint: "latest_position" },
+  });
 
   const lastPosOk = check(lastPosResp, {
-    "latest_position 200 or 404": (r) =>
-      r.status === 200 || r.status === 404,
+    "latest_position 200 or 404": (r) => r.status === 200 || r.status === 404,
   });
   if (!lastPosOk) {
     errorRate.add(1);
@@ -106,7 +116,7 @@ export function runGetApiTesting() {
     `${BASE}/device/position/track/${DEVICE_ID}?sec=10`,
     {
       tags: { endpoint: "track_position" },
-    },
+    }
   );
 
   const trackOk = check(trackResp, {

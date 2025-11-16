@@ -32,7 +32,7 @@ export const options = {
       "p(95)<500",
       "p(99)<1000",
     ],
-    "http_req_duration{endpoint:healthz}": [
+    "http_req_duration{endpoint:health}": [
       "p(50)<100",
       "p(95)<300",
       "p(99)<800",

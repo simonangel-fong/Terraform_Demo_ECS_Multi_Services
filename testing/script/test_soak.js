@@ -21,7 +21,7 @@ export const options = {
     http_req_failed: ["rate<0.01"],
 
     "http_req_duration{endpoint:home}": ["p(95)<600", "p(99)<1200"],
-    "http_req_duration{endpoint:healthz}": ["p(95)<400", "p(99)<800"],
+    "http_req_duration{endpoint:health}": ["p(95)<400", "p(99)<800"],
     "http_req_duration{endpoint:list_devices}": ["p(95)<1000", "p(99)<2000"],
     "http_req_duration{endpoint:get_device_by_name_type}": [
       "p(95)<1500",

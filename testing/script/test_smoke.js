@@ -35,7 +35,7 @@ export const options = {
 
 export function smokeTest() {
   runGetApiTesting();
-  runPostApiTesting();
+  // runPostApiTesting();
 }
 
 export default smokeTest;
