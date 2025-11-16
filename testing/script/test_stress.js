@@ -1,9 +1,13 @@
 // test_stress.js
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
-import { runApiTesting, errorRate } from "./target_url.js";
+import {
+  runGetApiTesting,
+  runPostApiTesting,
+  errorRate,
+} from "./target_url.js";
 
-const RATE = Number(__ENV.RATE) || 300; // highest RPS
-const DURATION = __ENV.DURATION || "3m"; // per step
+const RATE = Number(__ENV.RATE) || 300;          // highest RPS target
+const DURATION = __ENV.DURATION || "3m";         // per step
 const PRE_VU = Number(__ENV.PRE_VU) || 20;
 const MAX_VU = Number(__ENV.MAX_VU) || 500;
 
@@ -12,8 +16,12 @@ export const options = {
     name: "Stress Testing",
   },
   thresholds: {
+    // checks pass
     checks: ["rate>0.99"],
+
+    // Abort if failing
     http_req_failed: [{ threshold: "rate<0.80", abortOnFail: true }],
+
     // errors: ["rate<0.80"],
   },
 
@@ -35,16 +43,21 @@ export const options = {
         { duration: DURATION, target: RATE * 0.8 },
         { duration: DURATION, target: RATE * 0.9 },
         { duration: DURATION, target: RATE * 1.0 },
-        { duration: DURATION, target: RATE * 1.0 },
-        { duration: "30s", target: 0 },
+        { duration: DURATION, target: RATE * 1.0 }, // sustain highest load
+        { duration: "30s", target: 0 },             // cool down
       ],
+      exec: "stressTest",
     },
   },
 };
 
-export default function () {
-  runApiTesting();
+export function stressTest() {
+  // both read & write paths in a stress iteration, 
+  runGetApiTesting();
+  runPostApiTesting();
 }
+
+export default stressTest;
 
 export function handleSummary(data) {
   return {

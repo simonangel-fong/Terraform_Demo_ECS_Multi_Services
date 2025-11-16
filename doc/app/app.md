@@ -10,7 +10,7 @@
   - [Push to ECR](#push-to-ecr)
 - [FastAPI](#fastapi)
   - [Create Project Env](#create-project-env)
-  - [Develop with Docker](#develop-with-docker)
+  - [Develop with Docker Compose](#develop-with-docker-compose-1)
   - [Push to DockerHub](#push-to-dockerhub-1)
   - [Push to ECR](#push-to-ecr-1)
 
@@ -32,6 +32,7 @@ docker compose -f ./app/docker-compose.yaml up -d --build
 ### Push to DockerHub
 
 ```sh
+docker build -t pgdb ./app/pgdb
 docker tag pgdb simonangelfong/demo-ecs-svc-pgdb
 docker push simonangelfong/demo-ecs-svc-pgdb
 ```
@@ -59,7 +60,7 @@ aws ecr get-login-password --region ca-central-1 | docker login --username AWS -
 docker build -t demo-ecs-multi-svc/db ./app/pgdb
 
 # tag your image
-docker tag demo-ecs-multi-svc/db:latest 099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/db:latest
+docker tag pgdb:latest 099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/db:latest
 
 # push image to repository
 docker push 099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/db:latest
@@ -80,7 +81,7 @@ cd app/fastapi
 python -m venv .venv
 python.exe -m pip install --upgrade pip
 
-pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv pydantic-settings pytest pytest-asyncio httpx
+pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv pydantic-settings  pytest pytest-asyncio httpx uvloop
 
 pip freeze > requirements.txt
 
@@ -89,16 +90,27 @@ pip freeze > requirements.txt
 python app/main.py
 ```
 
-### Develop with Docker
-
-- Docker
+### Develop with Docker Compose
 
 ```sh
-cd app
+docker compose -f ./app/docker-compose.yaml down -v
+docker compose -f ./app/docker-compose.yaml up -d --build
 
-# build image
-docker build -t fastapi ./fastapi
-dcoker run --name api -p 8000:8000 fastapi
+# home
+curl http://localhost:8000/
+# list devices
+curl "http://localhost:8000/devices"
+curl "http://localhost:8000/devices?limit=5&offset=0"
+
+# get device:
+curl "http://localhost:8000/devices/info?name=device-001&type=sensor"
+# get latest position:
+curl "http://localhost:8000/device/position/last/3"
+# Update / append position & Track
+curl -X POST "http://localhost:8000/device/position/3" `
+  -H "Content-Type: application/json" `
+  -d "{""x"": 4.5, ""y"": 7.2}"
+curl "http://localhost:8000/device/position/track/3?sec=30"
 ```
 
 ---
@@ -108,6 +120,7 @@ dcoker run --name api -p 8000:8000 fastapi
 - DockerHub
 
 ```sh
+docker build -t fastapi ./app/fastapi
 # tag
 docker tag fastapi simonangelfong/demo-ecs-svc-fastapi
 # push to docker

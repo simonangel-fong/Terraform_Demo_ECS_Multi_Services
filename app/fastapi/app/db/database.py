@@ -1,37 +1,43 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from config.setting import settings
+from collections.abc import AsyncGenerator
 
-# define async engine with db url
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from ..config.setting import settings
+
+# Async SQLAlchemy engine
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.debug,    # enable if debug mode
-    pool_pre_ping=True,
-    pool_size=20,           # persistent database connections
-    max_overflow=40,        # additional temporary connections
-    # If PostgreSQL doesn't respond within 10 seconds, the connection attempt fails
-    # Disables PostgreSQL's Just-In-Time (JIT) compilation
-    connect_args={"timeout": 10, "server_settings": {"jit": "off"}},
+    echo=settings.debug,          # SQL logging in debug mode only
+    pool_pre_ping=True,           # Validate connections before using them
+    pool_size=10,                 # Persistent connections in the pool
+    max_overflow=10,              # Extra temporary connections allowed
+    pool_timeout=30,              # Seconds to wait for a connection from the pool
+    pool_recycle=1800,            # Recycle connections every 30 minutes
+    connect_args={
+        "timeout": 10,            # Connection attempt timeout (asyncpg)
+        "server_settings": {"jit": "off"},  # Disable PostgreSQL JIT
+    },
 )
 
-# session factory that creates async sessions when called:
-#   bind: use the async engine
-#   class: to create an AsyncSession object
-#   expire_on_commit: false, keep their values after commit
-#   autoflush: False, flush happens on commit() or when you manually call session.flush().
-async_session = async_sessionmaker(
+# Session factory that creates AsyncSession instances
+async_session_maker = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
+    expire_on_commit=False,       # Keep instance attributes after commit
+    autoflush=False,              # Explicit flush control
 )
 
 
-async def get_db():
-    ''' 
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """
     Async database session dependency for FastAPI.
-    Yields an AsyncSession that automatically closes after use.
-    async database session 
-    '''
-    # Creates an AsyncSession
-    async with async_session() as session:
+
+    Yields:
+        AsyncSession: SQLAlchemy async session that is automatically closed.
+    """
+    async with async_session_maker() as session:
         yield session

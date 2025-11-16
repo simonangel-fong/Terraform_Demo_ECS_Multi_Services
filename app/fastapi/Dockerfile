@@ -1,17 +1,33 @@
 FROM python:3.12-slim
 
-
+# Environment
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    TZ=America/Toronto \
+    DEBIAN_FRONTEND=noninteractive
+
+# Set timezone data
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements.txt ./
-RUN pip install -r requirements.txt
 
+# Install dependencies (leverages Docker layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY app ./app
-EXPOSE 8000
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD curl -fsS http://localhost:8000/healthz || exit 1
 
-CMD ["python", "app/main.py"]
+# Create a non-root user
+RUN adduser --disabled-password --gecos "" appuser && \
+    chown -R appuser /app
+USER appuser
+
+EXPOSE 8000
+
+# Run FastAPI with uvicorn, uvloop + httptools
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--loop", "uvloop", "--http", "httptools"]
