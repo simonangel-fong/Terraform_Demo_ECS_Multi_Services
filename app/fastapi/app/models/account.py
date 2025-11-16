@@ -1,7 +1,7 @@
 # models/account.py
 from datetime import datetime
-
-from sqlalchemy import Boolean, DateTime, Integer, String, Index, Enum
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import Boolean, DateTime, Integer, String, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import CITEXT
 
@@ -14,15 +14,20 @@ class Account(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
+
     account_type: Mapped[AccountType] = mapped_column(
-        Enum(
+        SAEnum(
             AccountType,
             name="account_type",
             schema="db_schema",
-            create_type=False, 
+            native_enum=True,
+            create_type=False,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+            validate_strings=True,
         ),
         nullable=False,
     )
+
     email: Mapped[str] = mapped_column(
         CITEXT(), nullable=False, unique=True
     )
@@ -34,13 +39,13 @@ class Account(Base):
         DateTime(timezone=True), nullable=False
     )
 
-    # # Relationships
-    # users = relationship(
-    #     "User",
-    #     back_populates="account",
-    #     cascade="all, delete-orphan",
-    #     lazy="selectin",
-    # )
+    # Relationships
+    users = relationship(
+        "User",
+        back_populates="account",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
     # subscription = relationship(
     #     "Subscription",
     #     back_populates="account",
