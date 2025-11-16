@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from .config.setting import settings
-from .routers import health, accounts, users
+from .routers import health, accounts, users, plans, subscriptions
 
 
 app = FastAPI(
@@ -36,7 +36,8 @@ async def home():
 
 
 # Mount routers
-# app.include_router(health.router)
+app.include_router(health.router)
 app.include_router(accounts.router)
 app.include_router(users.router)
-# app.include_router(plans.router)
+app.include_router(plans.router)
+app.include_router(subscriptions.router)

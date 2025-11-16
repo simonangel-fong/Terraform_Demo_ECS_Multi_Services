@@ -46,12 +46,12 @@ class Account(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-    # subscription = relationship(
-    #     "Subscription",
-    #     back_populates="account",
-    #     uselist=False,
-    #     lazy="selectin",
-    # )
+    subscription = relationship(
+        "Subscription",
+        back_populates="account",
+        uselist=False,
+        lazy="selectin",
+    )
     # api_keys = relationship(
     #     "ApiKey",
     #     back_populates="account",
