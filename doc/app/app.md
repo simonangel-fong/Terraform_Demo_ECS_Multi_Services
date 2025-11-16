@@ -22,6 +22,15 @@
 
 !Table
 
+```sh
+# custom config
+postgres -c config_file=/config/postgresql.dev.conf
+
+# load sample data
+docker exec -it pgdb psql -U postgres -d app_db -f /script/01_stress_seed.sql
+```
+
+
 ### Develop with Docker Compose
 
 ```sh
