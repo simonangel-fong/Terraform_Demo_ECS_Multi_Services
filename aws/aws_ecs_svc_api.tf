@@ -79,6 +79,11 @@ resource "aws_ecs_task_definition" "ecs_task_api" {
   task_role_arn            = aws_iam_role.ecs_task_role_api.arn
 
   container_definitions = file("./container/api.json")
+
+  tags = {
+    Project = var.project
+    Name    = "${var.project}-task-api"
+  }
 }
 
 # #################################
@@ -111,7 +116,7 @@ resource "aws_ecs_service" "ecs_svc_api" {
   # service connect
   service_connect_configuration {
     enabled   = true
-    namespace = "${var.project}.local"
+    namespace = aws_service_discovery_private_dns_namespace.ns_db.arn
 
     service {
       discovery_name = "fastapi" # the name refered by other services refer
@@ -124,7 +129,18 @@ resource "aws_ecs_service" "ecs_svc_api" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.log_group_api]
+  tags = {
+    Project = var.project
+    Name    = "${var.project}-service-api"
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.log_group_api,
+    aws_service_discovery_private_dns_namespace.ns_db,
+    aws_vpc_endpoint.ecr_api,
+    aws_vpc_endpoint.ecr_dkr,
+    aws_vpc_endpoint.s3,
+  ]
 }
 
 # #################################
@@ -161,15 +177,14 @@ resource "aws_appautoscaling_policy" "scaling_memory_api" {
   resource_id        = aws_appautoscaling_target.scaling_target_api.resource_id
   scalable_dimension = aws_appautoscaling_target.scaling_target_api.scalable_dimension
   service_namespace  = aws_appautoscaling_target.scaling_target_api.service_namespace
-  policy_type        = "PredictiveScaling"
+  policy_type        = "TargetTrackingScaling"
 
-  predictive_scaling_policy_configuration {
-    metric_specification {
-      predefined_metric_pair_specification {
-        predefined_metric_type = "ECSServiceMemoryUtilization"
-      }
-
-      target_value = 40 # memory %
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
     }
+    target_value       = 40
+    scale_in_cooldown  = 60
+    scale_out_cooldown = 60
   }
 }
