@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import (
 from ..config.setting import settings
 
 # Async SQLAlchemy engine
-engine = create_async_engine(
+engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=settings.debug,          # SQL logging in debug mode only
     pool_pre_ping=True,           # Validate connections before using them
@@ -20,15 +21,16 @@ engine = create_async_engine(
     connect_args={
         "timeout": 10,            # Connection attempt timeout (asyncpg)
         "server_settings": {"jit": "off"},  # Disable PostgreSQL JIT
+        # "ssl": False,
     },
 )
 
 # Session factory that creates AsyncSession instances
 async_session_maker = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
+    engine,
     expire_on_commit=False,       # Keep instance attributes after commit
     autoflush=False,              # Explicit flush control
+    class_=AsyncSession,
 )
 
 
@@ -40,4 +42,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         AsyncSession: SQLAlchemy async session that is automatically closed.
     """
     async with async_session_maker() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise

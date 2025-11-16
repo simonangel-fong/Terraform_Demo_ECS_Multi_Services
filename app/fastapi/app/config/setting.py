@@ -1,4 +1,6 @@
+from typing import Literal
 from pathlib import Path
+from urllib.parse import quote_plus
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,7 +16,8 @@ class DatabaseSettings(BaseModel):
     @property
     def url(self) -> str:
         """ PostgreSQL connection string"""
-        return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}"
+        pwd = quote_plus(self.password)  # process "/" or ":" in pwd
+        return f"postgresql+asyncpg://{self.user}:{pwd}@{self.host}:{self.port}/{self.db_name}"
 
 
 class Settings(BaseSettings):
@@ -28,10 +31,10 @@ class Settings(BaseSettings):
     )
 
     debug: bool = False     # debug mode
-    env: str = "prod"       # environment
+    env: Literal["dev", "staging", "prod"] = "prod"
 
     # Database
-    database: DatabaseSettings = DatabaseSettings()
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
 
     @property
     def database_url(self) -> str:
