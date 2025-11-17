@@ -5,6 +5,9 @@ from fastapi import FastAPI
 
 from .config.setting import settings
 from .routers import health, devices, telemetry
+from .config.logging import setup_logging
+
+setup_logging()
 
 app = FastAPI(
     title="IoT Device Management API",

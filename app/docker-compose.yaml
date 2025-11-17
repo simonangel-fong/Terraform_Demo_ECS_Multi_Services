@@ -22,7 +22,7 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - public_network
-      - private_network
+      # - private_network
     ports:
       - "5432:5432"
     command: ["postgres", "-c", "config_file=/config/dev.conf"]
@@ -37,23 +37,23 @@ services:
       retries: 30
       start_period: 30s
 
-  # fastapi:
-  #   container_name: fastapi
-  #   # image: simonangelfong/demo-ecs-svc-fastapi
-  #   # image: fastapi
-  #   build:
-  #     context: ./fastapi/
-  #     dockerfile: Dockerfile
-  #   environment:
-  #     - ENV=dev
-  #     - DEBUG=true
-  #     - DATABASE__HOST=pgdb
-  #     - DATABASE__PORT=5432
-  #     - DATABASE__DB_NAME=app_db
-  #     - DATABASE__USER=app_user
-  #     - DATABASE__PASSWORD=postgres
-  #   networks:
-  #     - public_network
-  #     - private_network
-  #   ports:
-  #     - 8000:8000
+  fastapi:
+    container_name: fastapi
+    # image: simonangelfong/demo-ecs-svc-fastapi
+    # image: fastapi
+    build:
+      context: ./fastapi/
+      dockerfile: Dockerfile
+    environment:
+      - ENV=dev
+      - DEBUG=true
+      - DATABASE__HOST=pgdb
+      - DATABASE__PORT=5432
+      - DATABASE__DB_NAME=app_db
+      - DATABASE__USER=app_user
+      - DATABASE__PASSWORD=postgres
+    networks:
+      - public_network
+      - private_network
+    ports:
+      - 8000:8000
