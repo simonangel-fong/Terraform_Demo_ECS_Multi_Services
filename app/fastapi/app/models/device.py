@@ -12,8 +12,8 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
 from .base import Base
 
 
@@ -24,7 +24,7 @@ class Device(Base):
     id = Column(
         BigInteger,
         primary_key=True,
-        index=True,
+        # index=True,
     )
 
     name = Column(
@@ -60,6 +60,13 @@ class Device(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+    telemetry_points = relationship(
+        "Telemetry",
+        back_populates="device",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def __repr__(self) -> str:

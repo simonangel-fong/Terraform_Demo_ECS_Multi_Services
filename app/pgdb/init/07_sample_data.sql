@@ -32,7 +32,7 @@ VALUES
     (
         'dev-alpha',
         'a5124a19-2725-4e07-9fdf-cb54a451204a',
-        '826d07e3815eba4f09dd0388fff5fdce270c3d39c436b34f874d3c463ce21f42',
+        '1f49c897c55d0f3c2adca4b489e35c9ba12cb3c9784c8b4fd1440d485d7675ca',
         TRUE,
         now(),
         now()
@@ -40,7 +40,7 @@ VALUES
     (
         'dev-bravo',
         '35dec641-554b-446f-9092-6652cb6fe3c0',
-        'aa2200f2caeb4c7eb11486531f9bb065a6e48f7a64ac3b5cb53a52a058b1bfde',
+        '5c49b3bb13f25e865465dbf14a2e2688b7967d121dc4a268e327ea8cdefd26a8',
         TRUE,
         now(),
         now()
@@ -48,7 +48,7 @@ VALUES
     (
         'dev-charlie',
         'd5a7fe62-28fb-49d9-906b-abed453d1cd4',
-        'fcc47efd7b6121e9cc8b8c7e7daadb335e88d2116df09a1c189a016b6a11213e',
+        '9f16d9a9e551a9390f722a411afe517d2f574773f9c7387d6ecf6254a2dc6dee',
         FALSE,  -- tracking disabled: good for testing privacy gate
         now(),
         now()

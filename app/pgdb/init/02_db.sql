@@ -13,10 +13,10 @@ CREATE DATABASE app_db
 \echo 'Connected to app_db'
 
 -- Set DB-level settings
-ALTER DATABASE app_db SET timezone = 'America/Toronto';
+-- ALTER DATABASE app_db SET timezone = 'America/Toronto';
 ALTER DATABASE app_db SET search_path = 'db_schema', 'public';
 
-SET TIMEZONE = 'America/Toronto';
+-- SET TIMEZONE = 'America/Toronto';
 
 SHOW timezone;
 SHOW search_path;
