@@ -36,10 +36,10 @@ async def home():
 
 # Mount routers
 app.include_router(health.router)
-app.include_router(accounts.router)
-app.include_router(users.router)
-app.include_router(plans.router)
-app.include_router(subscriptions.router)
-app.include_router(api_keys.router)
+# app.include_router(accounts.router)
+# app.include_router(users.router)
+# app.include_router(plans.router)
+# app.include_router(subscriptions.router)
+# app.include_router(api_keys.router)
 app.include_router(devices.router)
 app.include_router(telemetry.router)

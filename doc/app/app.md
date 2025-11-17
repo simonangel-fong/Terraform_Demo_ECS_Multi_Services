@@ -94,9 +94,9 @@ pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic p
 
 pip freeze > requirements.txt
 
-# uvicorn app.main:app --reload
+# python app/main.py
+uvicorn app.main:app --reload
 # uvicorn app.main:app --host 0.0.0.0 --port 8000
-python app/main.py
 ```
 
 ### Develop with Docker Compose

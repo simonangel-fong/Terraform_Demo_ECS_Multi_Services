@@ -14,7 +14,6 @@ from ..models.device_latest import DeviceLatest
 from ..schemas.device_telemetry import (
     TelemetryRead,
     TelemetryCreate,
-    TelemetryBatchCreate,
 )
 
 router = APIRouter(
@@ -22,13 +21,13 @@ router = APIRouter(
     tags=["telemetry"],
 )
 
-DEFAULT_LATEST_SECONDS = 1800         # 30 minutes
+DEFAULT_LATEST_SECONDS = 1800          # 30 minutes
 MAX_LATEST_SECONDS = 24 * 3600        # safety: 24 hours
 
 
-# ============================================================
-# READ: list telemetry
-# ============================================================
+# ##############################
+# list telemetry
+# ##############################
 @router.get(
     "",
     summary="List telemetry (optionally by device, latest N seconds)",
@@ -56,12 +55,18 @@ async def list_telemetry(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> list[TelemetryRead]:
+    """
+    Return telemetry rows from the last `latest` seconds.
+
+    - If `device_id` is provided: filter for that device only.
+    - Otherwise: returns telemetry across all devices (capped by `limit`).
+    """
     cutoff_expr = func.now() - timedelta(seconds=latest)
 
     stmt = (
         select(DeviceTelemetry)
         .where(DeviceTelemetry.recorded_at >= cutoff_expr)
-        .order_by(DeviceTelemetry.recorded_at.desc())
+        .order_by(DeviceTelemetry.recorded_at.desc(), DeviceTelemetry.id.desc())
         .limit(limit)
     )
 
@@ -74,6 +79,10 @@ async def list_telemetry(
     return [TelemetryRead.model_validate(r) for r in rows]
 
 
+# ##############################
+# Get /telemetry/{device_id}
+# get telemetry of a device
+# ##############################
 @router.get(
     "/{device_id}",
     summary="List telemetry for a specific device (latest N seconds)",
@@ -98,13 +107,16 @@ async def list_device_telemetry(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> list[TelemetryRead]:
+    """
+    Return telemetry for a specific device from the last `latest` seconds.
+    """
     cutoff_expr = func.now() - timedelta(seconds=latest)
 
     stmt = (
         select(DeviceTelemetry)
         .where(DeviceTelemetry.device_id == device_id)
         .where(DeviceTelemetry.recorded_at >= cutoff_expr)
-        .order_by(DeviceTelemetry.recorded_at.desc())
+        .order_by(DeviceTelemetry.recorded_at.desc(), DeviceTelemetry.id.desc())
         .limit(limit)
     )
 
@@ -114,34 +126,49 @@ async def list_device_telemetry(
     return [TelemetryRead.model_validate(r) for r in rows]
 
 
-# ============================================================
-# WRITE: single telemetry point
-# ============================================================
+# ##################################################
+# POST /telemetry/{device_id}
+# WRITE: single telemetry point for a device
+# ##################################################
 @router.post(
-    "",
-    summary="Ingest a single telemetry point",
+    "/{device_id}",
+    summary="Ingest a single telemetry point for a device",
     response_model=TelemetryRead,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_telemetry(
+    device_id: int,
     payload: TelemetryCreate,
     db: AsyncSession = Depends(get_db),
 ) -> TelemetryRead:
     """
-    Insert a single telemetry row and update:
+    Insert a single telemetry row for `device_id` and update:
     - device_telemetry
     - device_latest (upsert)
     - device.last_seen_at
+
+    NOTE:
+    - If your TelemetryCreate schema also contains device_id, you can
+      optionally validate that it matches the path param.
     """
-    # Optional: ensure device exists
-    device = await db.get(Device, payload.device_id)
+    # Ensure device exists
+    device = await db.get(Device, device_id)
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
+
+    # Optional consistency check if TelemetryCreate has device_id field:
+    if hasattr(payload, "device_id"):
+        body_device_id = getattr(payload, "device_id")
+        if body_device_id is not None and body_device_id != device_id:
+            raise HTTPException(
+                status_code=400,
+                detail="device_id in path and body do not match",
+            )
 
     recorded_at = payload.recorded_at or datetime.now(timezone.utc)
 
     telemetry = DeviceTelemetry(
-        device_id=payload.device_id,
+        device_id=device_id,
         recorded_at=recorded_at,
         x_coord=payload.x_coord,
         y_coord=payload.y_coord,
@@ -149,11 +176,8 @@ async def create_telemetry(
     )
     db.add(telemetry)
 
-    # Upsert into device_latest:
-    #   - Insert new row if none exists
-    #   - Update only if this telemetry is newer than existing recorded_at
     stmt_latest = pg_insert(DeviceLatest).values(
-        device_id=payload.device_id,
+        device_id=device_id,
         recorded_at=recorded_at,
         x_coord=payload.x_coord,
         y_coord=payload.y_coord,
@@ -173,7 +197,7 @@ async def create_telemetry(
     # Update device.last_seen_at
     await db.execute(
         update(Device)
-        .where(Device.id == payload.device_id)
+        .where(Device.id == device_id)
         .values(last_seen_at=recorded_at)
     )
 
@@ -181,85 +205,3 @@ async def create_telemetry(
     await db.refresh(telemetry)
 
     return TelemetryRead.model_validate(telemetry)
-
-
-# ============================================================
-# WRITE: batch telemetry for a single device
-# ============================================================
-@router.post(
-    "/batch",
-    summary="Ingest multiple telemetry points for a single device",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def create_telemetry_batch(
-    payload: TelemetryBatchCreate,
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    """
-    Efficient batch insert for a single device.
-
-    - Inserts multiple rows into device_telemetry
-    - Updates device_latest using the newest recorded_at in the batch
-    - Updates device.last_seen_at
-    """
-    # Ensure device exists
-    device = await db.get(Device, payload.device_id)
-    if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
-
-    now_utc = datetime.now(timezone.utc)
-    telemetry_rows: list[DeviceTelemetry] = []
-    latest_ts: datetime | None = None
-    latest_point: TelemetryCreate | None = None
-
-    for p in payload.points:
-        recorded_at = p.recorded_at or now_utc
-
-        row = DeviceTelemetry(
-            device_id=payload.device_id,
-            recorded_at=recorded_at,
-            x_coord=p.x_coord,
-            y_coord=p.y_coord,
-            meta=p.meta,
-        )
-        telemetry_rows.append(row)
-
-        if latest_ts is None or recorded_at > latest_ts:
-            latest_ts = recorded_at
-            latest_point = p
-
-    if not telemetry_rows:
-        # No points submitted; nothing to do
-        return
-
-    db.add_all(telemetry_rows)
-
-    # Upsert latest only once (for the newest point)
-    if latest_ts is not None and latest_point is not None:
-        stmt_latest = pg_insert(DeviceLatest).values(
-            device_id=payload.device_id,
-            recorded_at=latest_ts,
-            x_coord=latest_point.x_coord,
-            y_coord=latest_point.y_coord,
-            meta=latest_point.meta or {},
-        ).on_conflict_do_update(
-            index_elements=[DeviceLatest.device_id],
-            set_={
-                "recorded_at": latest_ts,
-                "x_coord": latest_point.x_coord,
-                "y_coord": latest_point.y_coord,
-                "meta": latest_point.meta or {},
-            },
-            where=DeviceLatest.recorded_at < latest_ts,
-        )
-        await db.execute(stmt_latest)
-
-        # Update device.last_seen_at
-        await db.execute(
-            update(Device)
-            .where(Device.id == payload.device_id)
-            .values(last_seen_at=latest_ts)
-        )
-
-    await db.commit()
-    # 204: no body
