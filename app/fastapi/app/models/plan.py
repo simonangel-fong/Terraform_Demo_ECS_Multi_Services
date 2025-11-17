@@ -10,11 +10,6 @@ from ..schemas.enums import PlanCode
 class Plan(Base):
     __tablename__ = "plan"
 
-    # code: Mapped[PlanCode] = mapped_column(
-    #     String,
-    #     primary_key=True,
-    # )
-
     code: Mapped[PlanCode] = mapped_column(
         SAEnum(
             PlanCode,

@@ -1,8 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from .config.setting import settings
-from .routers import health, accounts, users, plans, subscriptions, api_keys
-
+from .routers import health, accounts, users, plans, subscriptions, api_keys, devices, telemetry
 
 app = FastAPI(
     title="Device Management API",
@@ -42,3 +41,5 @@ app.include_router(users.router)
 app.include_router(plans.router)
 app.include_router(subscriptions.router)
 app.include_router(api_keys.router)
+app.include_router(devices.router)
+app.include_router(telemetry.router)

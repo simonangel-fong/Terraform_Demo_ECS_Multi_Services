@@ -58,12 +58,12 @@ class Account(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-    # devices = relationship(
-    #     "Device",
-    #     back_populates="account",
-    #     cascade="all, delete-orphan",
-    #     lazy="selectin",
-    # )
+    devices = relationship(
+        "Device",
+        back_populates="account",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         Index("idx_account_type", "account_type"),
