@@ -70,7 +70,7 @@ USING db_schema.device d
 WHERE dl.device_id = d.id
   AND d.name IN ('dev-alpha', 'dev-bravo', 'dev-charlie');
 
-DELETE FROM db_schema.device_telemetry t
+DELETE FROM db_schema.telemetry t
 USING db_schema.device d
 WHERE t.device_id = d.id
   AND d.name IN ('dev-alpha', 'dev-bravo', 'dev-charlie');
@@ -96,9 +96,9 @@ bravo AS (
 ),
 base AS (
     -- Use current time in UTC as base; stable within this statement
-    SELECT (now() AT TIME ZONE 'UTC') AS base_ts
+    SELECT now() AS base_ts
 )
-INSERT INTO db_schema.device_telemetry (
+INSERT INTO db_schema.telemetry (
     device_id,
     x_coord,
     y_coord,
@@ -156,7 +156,7 @@ SELECT DISTINCT ON (t.device_id)
     t.device_time,
     t.x_coord,
     t.y_coord
-FROM db_schema.device_telemetry t
+FROM db_schema.telemetry t
 JOIN db_schema.device d
   ON d.id = t.device_id
 WHERE d.name IN ('dev-alpha', 'dev-bravo')
@@ -170,7 +170,7 @@ ORDER BY t.device_id, t.recorded_at DESC;
 
 SELECT
     (SELECT count(*) FROM db_schema.device)            AS total_devices,
-    (SELECT count(*) FROM db_schema.device_telemetry)  AS total_telemetry_rows,
+    (SELECT count(*) FROM db_schema.telemetry)  AS total_telemetry_rows,
     (SELECT count(*) FROM db_schema.device_latest)     AS total_device_latest_rows;
 
 SELECT

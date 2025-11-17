@@ -1,24 +1,19 @@
-# schemas/device.py
+# app/schemas/device.py
 from datetime import datetime
-
+from uuid import UUID
+from pydantic import Field
 from .base import ORMModel
-from .enums import DeviceStatus
-from .device_latest import DeviceLatestRead
 
 
-class DeviceRead(ORMModel):
-    id: int
-    account_id: int
-    name: str
-    type: str
-    model: str | None
-    status: DeviceStatus
-    firmware_version: str | None
-    tags: dict | None
-    last_seen_at: datetime | None
+class DeviceItem(ORMModel):
+    name: str = Field(
+        description="The device name",
+    )
+    device_uuid: UUID = Field(
+        description="The UUID of the device",
+    )
+    tracking_enabled: bool = Field(
+        description="Whether telemetry tracking is enabled for this device",
+    )
     created_at: datetime
     updated_at: datetime
-
-
-class DeviceWithLatest(DeviceRead):
-    latest: DeviceLatestRead | None
