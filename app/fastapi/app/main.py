@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from .config.setting import settings
-from .routers import health, accounts, users, plans, subscriptions
+from .routers import health, accounts, users, plans, subscriptions, api_keys
 
 
 app = FastAPI(
@@ -41,3 +41,4 @@ app.include_router(accounts.router)
 app.include_router(users.router)
 app.include_router(plans.router)
 app.include_router(subscriptions.router)
+app.include_router(api_keys.router)

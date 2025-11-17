@@ -52,12 +52,12 @@ class Account(Base):
         uselist=False,
         lazy="selectin",
     )
-    # api_keys = relationship(
-    #     "ApiKey",
-    #     back_populates="account",
-    #     cascade="all, delete-orphan",
-    #     lazy="selectin",
-    # )
+    api_keys = relationship(
+        "ApiKey",
+        back_populates="account",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
     # devices = relationship(
     #     "Device",
     #     back_populates="account",
