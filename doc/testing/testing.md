@@ -77,14 +77,22 @@ docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE="h
 docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_baseline.js
 
 
+# load testing (Normal)
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_load.js
+
+
+# soak testing (Same as load testing but for 8 hours)
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e DURATION=480 -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_load.js
+
+
 # spike testing
-docker run --rm --name k6_spike --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_spike.html -v ./testing/script:/scripts -v ./testing/report:/report/ grafana/k6 run /scripts/test_spike.js
+docker run --rm --name k6_spike --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_spike.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_spike.js
+
 
 # stress testing
-docker run --rm --name k6_stress --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./testing/script:/scripts -v ./testing/report:/report/ grafana/k6 run /scripts/test_stress.js
+docker run --rm --name k6_stress --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_stress.js
 
-# soak testing
-docker run --rm --name k6_soak --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_soak.html -v ./testing/script:/scripts -v ./testing/report:/report/ grafana/k6 run /scripts/test_soak.js
+
 ```
 
 ---

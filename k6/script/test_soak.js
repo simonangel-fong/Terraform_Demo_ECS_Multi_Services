@@ -9,8 +9,8 @@ import {
 const RATE_SOAK = Number(__ENV.RATE_SOAK) || 30;
 const DURATION_RAMP = __ENV.DURATION_RAMP || "5m";
 const DURATION_SOAK = __ENV.DURATION_SOAK || "2h";
-const PRE_VU = Number(__ENV.PRE_VU) || 10;
-const MAX_VU = Number(__ENV.MAX_VU) || 100;
+const VU_PRE = Number(__ENV.VU_PRE) || 10;
+const VU_MAX = Number(__ENV.VU_MAX) || 100;
 
 export const options = {
   cloud: {
@@ -36,8 +36,8 @@ export const options = {
     soak: {
       executor: "ramping-arrival-rate",
       timeUnit: "1s",
-      preAllocatedVUs: PRE_VU,
-      maxVUs: MAX_VU,
+      preAllocatedVUs: VU_PRE,
+      maxVUs: VU_MAX,
       startRate: 1,
       stages: [
         { duration: DURATION_RAMP, target: RATE_SOAK }, // warm up

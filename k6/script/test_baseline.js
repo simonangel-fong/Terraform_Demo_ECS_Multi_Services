@@ -13,9 +13,11 @@ function parseNumberEnv(name, defaultValue) {
 }
 
 const RATE = parseNumberEnv("RATE", 10); // RATE 10 = 200 devices / every 20s
-const DURATION = parseNumberEnv("DURATION", 600); // second; 10m
-const PRE_VU = parseNumberEnv("PRE_VU", 20);  // at least 20 devices
-const MAX_VU = parseNumberEnv("MAX_VU", 200); // max 200 devices
+const DURATION = parseNumberEnv("DURATION", 600); // second
+const VU_PRE = parseNumberEnv("VU_PRE", 20); // at least 20 devices
+const VU_MAX = parseNumberEnv("VU_MAX", 200); // max 200 devices
+
+const DURATION_MINUTES = parseNumberEnv("DURATION_MINUTES", 45);
 
 // ==============================
 // k6 options
@@ -39,9 +41,9 @@ export const options = {
       executor: "constant-arrival-rate",
       rate: RATE, // writes per second
       timeUnit: "1s",
-      duration: DURATION,
-      preAllocatedVUs: PRE_VU,
-      maxVUs: MAX_VU,
+      duration: `${DURATION}s`,
+      preAllocatedVUs: VU_PRE,
+      maxVUs: VU_MAX,
       gracefulStop: "30s",
       exec: "baselineTest",
     },
@@ -52,7 +54,7 @@ export const options = {
 // Scenario function
 // ==============================
 export function baselineTest() {
-  postTelemetry();  // post heavy
+  postTelemetry(); // post heavy
 }
 
 export default baselineTest;

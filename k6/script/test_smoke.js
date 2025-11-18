@@ -21,8 +21,8 @@ function parseNumberEnv(name, defaultValue) {
 const RATE = parseNumberEnv("RATE", 2); // iterations per second
 const DURATION = parseNumberEnv("DURATION", 60); // seconds
 
-const PRE_VU = parseNumberEnv("PRE_VU", 3);
-const MAX_VU = parseNumberEnv("MAX_VU", 10);
+const VU_PRE = parseNumberEnv("VU_PRE", 3);
+const VU_MAX = parseNumberEnv("VU_MAX", 10);
 
 // ==============================
 // k6 options
@@ -46,8 +46,8 @@ export const options = {
       rate: RATE, // iterations per second
       duration: `${DURATION}s`,
       timeUnit: "1s",
-      preAllocatedVUs: PRE_VU,
-      maxVUs: MAX_VU,
+      preAllocatedVUs: VU_PRE,
+      maxVUs: VU_MAX,
       gracefulStop: "10s",
       exec: "smokeTest",
     },

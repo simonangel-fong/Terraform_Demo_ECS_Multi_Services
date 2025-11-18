@@ -1,69 +1,115 @@
 // test_spike.js
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
-import {
-  runGetApiTesting,
-  runPostApiTesting,
-  errorRate,
-} from "./target_url.js";
+import { postTelemetry, getTelemetry, errorRate } from "./target_url.js";
 
-const RATE_WARMUP = Number(__ENV.RATE_WARMUP) || 5;
-const RATE_SPIKE = Number(__ENV.RATE_SPIKE) || 200;
+// ==============================
+// Environment parameters
+// ==============================
+function parseNumberEnv(name, defaultValue) {
+  const raw = __ENV[name];
+  if (raw === undefined) return defaultValue;
+  const n = Number(raw);
+  return Number.isNaN(n) ? defaultValue : n;
+}
 
-const DURATION_WARMUP = __ENV.DURATION_WARMUP || "1m";
-const DURATION_RAMP_UP = __ENV.DURATION_RAMP_UP || "10s";
-const DURATION_SPIKE = __ENV.DURATION_SPIKE || "2m";
-const DURATION_RAMP_DOWN = __ENV.DURATION_RAMP_DOWN || "1m";
+const VU_DEVICE = parseNumberEnv("VU_DEVICE", 50);  // # of devices
+const VU_DEVICE_MAX = parseNumberEnv("VU_DEVICE_MAX", 600); // max # of devices
+const VU_HUB = parseNumberEnv("VU_HUB", 10); // # of hub to monitor real time data
+const VU_HUB_MAX = parseNumberEnv("VU_HUB_MAX", 30); // max # of hub to monitor real time data
 
-const PRE_VU = Number(__ENV.PRE_VU) || 20;
-const MAX_VU = Number(__ENV.MAX_VU) || 300;
+const RATE_POST = parseNumberEnv("RATE_POST", 30); // baseline post
+const RATE_POST_MAX = parseNumberEnv("RATE_POST_MAX", 90); // max post
 
+const RATE_GET = parseNumberEnv("RATE_GET", 5); // baseline get
+const RATE_GET_MAX = parseNumberEnv("RATE_GET_MAX", 15); // max get
+
+const DURATION_UP = parseNumberEnv("DURATION_UP", 300); // second; warm up
+const DURATION_DOWN = parseNumberEnv("DURATION_DOWN", 600); // second; recovery
+const DURATION_SPIKE = parseNumberEnv("DURATION_SPIKE", 300); // second; hold on spike
+
+// ==============================
+// k6 options
+// ==============================
 export const options = {
   cloud: {
-    name: "Spike Testing",
+    name: "Spike Test",
   },
   thresholds: {
-    errors: ["rate<0.05"],
-    http_req_failed: ["rate<0.05"],
+    errors: ["rate<0.01"], // < 0.01 error rate
+    http_req_failed: ["rate<0.01"], // HTTP-level failures
 
-    "http_req_duration{endpoint:home}": ["p(95)<2000"],
-    "http_req_duration{endpoint:health}": ["p(95)<1500"],
-    "http_req_duration{endpoint:list_devices}": ["p(95)<3000"],
-    "http_req_duration{endpoint:get_device_by_name_type}": ["p(95)<4000"],
-    "http_req_duration{endpoint:latest_position}": ["p(95)<3000"],
-    "http_req_duration{endpoint:track_position}": ["p(95)<4000"],
-    "http_req_duration{endpoint:update_position}": ["p(95)<3000"],
+    // Writes: POST /telemetry
+    "http_req_duration{endpoint:telemetry_post}": [
+      "p(50)<100", // median can be a bit higher
+      "p(95)<200", // main spike SLO: p95 < 200ms
+      "p(99)<400",
+    ],
+
+    // Reads: GET /telemetry (dashboards)
+    "http_req_duration{endpoint:telemetry_get}": ["p(95)<250", "p(99)<500"],
   },
 
   scenarios: {
-    spike: {
+    // post
+    post_spike: {
       executor: "ramping-arrival-rate",
       timeUnit: "1s",
-      preAllocatedVUs: PRE_VU,
-      maxVUs: MAX_VU,
-      startRate: RATE_WARMUP,
+      preAllocatedVUs: VU_DEVICE,
+      maxVUs: VU_DEVICE_MAX,
+      startRate: RATE_POST, // start at baseline
+
       stages: [
-        { duration: DURATION_WARMUP, target: RATE_WARMUP }, // warm up
-        { duration: DURATION_RAMP_UP, target: RATE_SPIKE }, // ramp quickly to spike
-        { duration: DURATION_SPIKE, target: RATE_SPIKE }, // hold spike
-        { duration: DURATION_RAMP_DOWN, target: RATE_WARMUP }, // ramp down
-        { duration: "30s", target: 0 }, // cool down
+        { duration: `${DURATION_UP}s`, target: RATE_POST },  //Warmup
+        { duration: "10s", target: RATE_POST_MAX }, // ramp up
+        { duration: `${DURATION_SPIKE}s`, target: RATE_POST_MAX }, // Hold spike
+        { duration: "10s", target: RATE_POST }, // drop back
+        { duration: `${DURATION_DOWN}s`, target: RATE_POST }, // Recovery
       ],
-      exec: "spikeTest",
+      gracefulStop: "30s",
+      exec: "spikePost",
+    },
+
+    // get
+    get_spike: {
+      executor: "ramping-arrival-rate",
+      timeUnit: "1s",
+      preAllocatedVUs: VU_HUB,
+      maxVUs: VU_HUB_MAX,
+      startRate: RATE_GET, // start at baseline
+
+      stages: [
+        { duration: `${DURATION_UP}s`, target: RATE_GET },  //Warmup
+        { duration: "10s", target: RATE_GET_MAX }, // ramp up
+        { duration: `${DURATION_SPIKE}s`, target: RATE_GET_MAX }, // Hold spike
+        { duration: "10s", target: RATE_GET }, // drop back
+        { duration: `${DURATION_DOWN}s`, target: RATE_GET }, // Recovery
+      ],
+      gracefulStop: "30s",
+      exec: "spikeGet",
     },
   },
 };
 
-export function spikeTest() {
-  // One iteration does both:
-  runGetApiTesting();
-  runPostApiTesting();
+// ==============================
+// Scenario functions
+// ==============================
+export function spikePost() {
+  postTelemetry();
 }
 
-export default spikeTest;
+export function spikeGet() {
+  getTelemetry();
+}
 
+// Optional default (ignored when scenarios are present, but OK to keep)
+export default spikePost;
+
+// ==============================
+// Summary output
+// ==============================
 export function handleSummary(data) {
   return {
-    "summary_spike.json": JSON.stringify(data, null, 2),
+    "spike_test.json": JSON.stringify(data, null, 2),
     stdout: textSummary(data, { indent: " ", enableColors: true }),
   };
 }
