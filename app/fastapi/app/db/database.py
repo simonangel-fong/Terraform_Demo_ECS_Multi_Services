@@ -13,8 +13,8 @@ engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=settings.debug,          # SQL logging in debug mode only
     pool_pre_ping=settings.debug, # Validate connections before using them
-    pool_size=15,                 # Persistent connections in the pool
-    max_overflow=10,              # Extra temporary connections allowed
+    pool_size=10,                 # Persistent connections in the pool
+    max_overflow=5,               # Extra temporary connections allowed
     pool_timeout=3,               # Seconds to wait for a connection from the pool
     pool_recycle=1800,            # Recycle connections every 30 minutes
     connect_args={

@@ -254,7 +254,7 @@ async def list_telemetry_for_device(
         ),
     ),
     limit: int = Query(
-        default=1000,
+        default=100,
         ge=1,
         le=5000,
         description="Maximum number of telemetry records to return.",

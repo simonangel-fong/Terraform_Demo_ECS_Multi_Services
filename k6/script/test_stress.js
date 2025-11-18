@@ -39,7 +39,7 @@ export const options = {
       {
         threshold: "rate<0.2",
         abortOnFail: true,
-        delayAbortEval: "15m",
+        delayAbortEval: "1m",
       },
     ],
 
@@ -47,7 +47,7 @@ export const options = {
       {
         threshold: "rate<0.1",
         abortOnFail: true,
-        delayAbortEval: "15m",
+        delayAbortEval: "1m",
       },
     ],
 
