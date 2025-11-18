@@ -70,10 +70,12 @@ docker compose -f app/docker-compose.yaml down -v
 docker compose -f app/docker-compose.yaml up -d --build
 
 # smoke testing
-docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_smoke.html -v ./testing/script:/script -v ./testing/report:/report/ grafana/k6 run /script/test_smoke.js
+docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_smoke.html -v ./k6/script:/script -v ./k6/report:/report/ grafana/k6 run /script/test_smoke.js
+
 
 # baseline(ramp-up) testing
-docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./testing/script:/scripts -v ./testing/report:/report/ grafana/k6 run /scripts/test_baseline.js
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_baseline.js
+
 
 # spike testing
 docker run --rm --name k6_spike --net=app_public_network -p 5665:5665 -e BASE="http://fastapi:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_spike.html -v ./testing/script:/scripts -v ./testing/report:/report/ grafana/k6 run /scripts/test_spike.js

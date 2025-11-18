@@ -18,8 +18,8 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    # volumes:
+    #   - pgdata:/var/lib/postgresql/data
     networks:
       - public_network
       # - private_network
@@ -36,6 +36,14 @@ services:
       timeout: 10s
       retries: 30
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2028M
+        reservations:
+          cpus: "0.5"
+          memory: 1024M
 
   fastapi:
     container_name: fastapi
@@ -57,3 +65,11 @@ services:
       - private_network
     ports:
       - 8000:8000
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
