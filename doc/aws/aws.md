@@ -22,18 +22,20 @@ terraform destroy -auto-approve
 
 
 # home
-curl https://demo-ecs-mul-svc.arguswatcher.net/
+curl "https://demo-ecs-mul-svc.arguswatcher.net"
+curl "https://demo-ecs-mul-svc.arguswatcher.net/health"
+curl "https://demo-ecs-mul-svc.arguswatcher.net/health/db"
 # list devices
 curl "https://demo-ecs-mul-svc.arguswatcher.net/devices"
-curl "https://demo-ecs-mul-svc.arguswatcher.net/devices?limit=5&offset=0"
+# get device
+curl "https://demo-ecs-mul-svc.arguswatcher.net/devices/a5124a19-2725-4e07-9fdf-cb54a451204a"
 
-# get device:
-curl "https://demo-ecs-mul-svc.arguswatcher.net/devices/info?name=device-001&device_type=sensor"
-# get latest position:
-curl "https://demo-ecs-mul-svc.arguswatcher.net/device/position/last/3"
-# Update / append position & Track
-curl -X POST "http://demo-ecs-mul-svc.arguswatcher.net/device/position/3" `
-  -H "Content-Type: application/json" `
-  -d "{""x"": 4.5, ""y"": 7.2}"
-curl "https://demo-ecs-mul-svc.arguswatcher.net/device/position/track/3?sec=30"
+# get telemetry:
+curl "https://demo-ecs-mul-svc.arguswatcher.net/telemetry/a5124a19-2725-4e07-9fdf-cb54a451204a" -H "Content-Type: application/json" -H "X-api-key: dev-alpha"
+
+# post telemetry:
+curl -X POST "https://demo-ecs-mul-svc.arguswatcher.net/telemetry/a5124a19-2725-4e07-9fdf-cb54a451204a" ^
+  -H "Content-Type: application/json" ^
+  -H "X-api-key: dev-alpha" ^
+  -d '{"x_coord": 123.456, "y_coord": 78.9, "device_time": "2025-11-17T18:31:56Z"}'
 ```

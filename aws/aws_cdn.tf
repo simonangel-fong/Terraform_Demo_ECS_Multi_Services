@@ -34,7 +34,7 @@ resource "aws_cloudfront_distribution" "ecs_cdn" {
   default_cache_behavior {
     target_origin_id       = "${var.project}-cdn-origin"
     viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    allowed_methods        = ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"]
     cached_methods         = ["GET", "HEAD", "OPTIONS"]
     compress               = true
 

@@ -24,7 +24,7 @@
     },
     "environment": [
       { "name": "POSTGRES_USER", "value": "postgres" },
-      { "name": "POSTGRES_DB", "value": "app_db" },
+      { "name": "POSTGRES_DB", "value": "postgres" },
       { "name": "POSTGRES_PASSWORD", "value": "postgres" }
     ],
     "mountPoints": [

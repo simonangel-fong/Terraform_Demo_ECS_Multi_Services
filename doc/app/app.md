@@ -3,8 +3,8 @@
 [Back](../../README.md)
 
 - [Terraform Demo: ECS Multi-services - Application](#terraform-demo-ecs-multi-services---application)
+- [Business Model](#business-model)
 - [Postgresql](#postgresql)
-  - [!Database design](#database-design)
   - [Develop with Docker Compose](#develop-with-docker-compose)
   - [Push to DockerHub](#push-to-dockerhub)
   - [Push to ECR](#push-to-ecr)
@@ -17,11 +17,11 @@
 
 ---
 
+## Business Model
+
+---
+
 ## Postgresql
-
-### !Database design
-
-!Table
 
 ```sh
 # custom config
@@ -69,7 +69,7 @@ aws ecr get-login-password --region ca-central-1 | docker login --username AWS -
 docker build -t demo-ecs-multi-svc/db ./app/pgdb
 
 # tag your image
-docker tag pgdb:latest 099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/db:latest
+docker tag demo-ecs-multi-svc/db 099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/db:latest
 
 # push image to repository
 docker push 099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/db:latest

@@ -2,8 +2,8 @@
   {
     "name": "fastapi",
     "image": "099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/api:latest",
-    "cpu": 512,
-    "memory": 1024,
+    "cpu": 1024,
+    "memory": 2048,
     "essential": true,
     "portMappings": [
       {
@@ -29,6 +29,16 @@
       { "name": "DATABASE__DB_NAME", "value": "app_db" },
       { "name": "DATABASE__USER", "value": "app_user" },
       { "name": "DATABASE__PASSWORD", "value": "postgres" }
-    ]
+    ],
+    "healthCheck": {
+      "command": [
+        "CMD-SHELL",
+        "curl -f http://localhost:8000/health || exit 1"
+      ],
+      "interval": 30,
+      "timeout": 5,
+      "retries": 3,
+      "startPeriod": 15
+    }
   }
 ]

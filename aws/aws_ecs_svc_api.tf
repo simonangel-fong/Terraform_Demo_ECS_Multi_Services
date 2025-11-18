@@ -73,8 +73,8 @@ resource "aws_ecs_task_definition" "ecs_task_api" {
   family                   = "${var.project}-task-api"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = 1024
+  memory                   = 2048
   execution_role_arn       = aws_iam_role.ecs_task_execution_role_api.arn
   task_role_arn            = aws_iam_role.ecs_task_role_api.arn
 
