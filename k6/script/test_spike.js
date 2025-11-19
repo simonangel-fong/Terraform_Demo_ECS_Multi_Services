@@ -12,20 +12,19 @@ function parseNumberEnv(name, defaultValue) {
   return Number.isNaN(n) ? defaultValue : n;
 }
 
-const VU_DEVICE = parseNumberEnv("VU_DEVICE", 50);  // # of devices
-const VU_DEVICE_MAX = parseNumberEnv("VU_DEVICE_MAX", 600); // max # of devices
-const VU_HUB = parseNumberEnv("VU_HUB", 10); // # of hub to monitor real time data
-const VU_HUB_MAX = parseNumberEnv("VU_HUB_MAX", 30); // max # of hub to monitor real time data
+const DEVICE_VU = parseNumberEnv("DEVICE_VU", 600); // # of devices
+const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of device transmit data
+const DEVICE_RATE = Math.ceil(DEVICE_VU / DEVICE_INTERVAL); // post rate
+const DEVICE_RATE_SPIKE = DEVICE_RATE * 3; // spike rate
 
-const RATE_POST = parseNumberEnv("RATE_POST", 30); // baseline post
-const RATE_POST_MAX = parseNumberEnv("RATE_POST_MAX", 90); // max post
+const HUB_VU = parseNumberEnv("HUB_VU", 60); // # of hub
+const HUB_INTERVAL = parseNumberEnv("HUB_INTERVAL", 10); // interval of hub request data
+const HUB_RATE = Math.ceil(HUB_VU / HUB_INTERVAL); // get rate
+const HUB_RATE_SPIKE = HUB_RATE * 3; // spike rate
 
-const RATE_GET = parseNumberEnv("RATE_GET", 5); // baseline get
-const RATE_GET_MAX = parseNumberEnv("RATE_GET_MAX", 15); // max get
-
-const DURATION_UP = parseNumberEnv("DURATION_UP", 300); // second; warm up
-const DURATION_DOWN = parseNumberEnv("DURATION_DOWN", 600); // second; recovery
-const DURATION_SPIKE = parseNumberEnv("DURATION_SPIKE", 300); // second; hold on spike
+const DURATION_WARM = parseNumberEnv("DURATION_WARM", 1); // second; warm up
+const DURATION_SPIKE = parseNumberEnv("DURATION_SPIKE", 3); // second; hold on spike
+const DURATION_COOL = parseNumberEnv("DURATION_COOL", 1); // second; cool down
 
 // ==============================
 // k6 options
@@ -51,41 +50,39 @@ export const options = {
 
   scenarios: {
     // post
-    post_spike: {
+    spike_telemetry_post: {
       executor: "ramping-arrival-rate",
+      preAllocatedVUs: DEVICE_VU,
+      startRate: DEVICE_RATE, // start at baseline
       timeUnit: "1s",
-      preAllocatedVUs: VU_DEVICE,
-      maxVUs: VU_DEVICE_MAX,
-      startRate: RATE_POST, // start at baseline
 
       stages: [
-        { duration: `${DURATION_UP}s`, target: RATE_POST },  //Warmup
-        { duration: "10s", target: RATE_POST_MAX }, // ramp up
-        { duration: `${DURATION_SPIKE}s`, target: RATE_POST_MAX }, // Hold spike
-        { duration: "10s", target: RATE_POST }, // drop back
-        { duration: `${DURATION_DOWN}s`, target: RATE_POST }, // Recovery
+        { duration: `${DURATION_WARM}m`, target: DEVICE_RATE }, //Warmup
+        { duration: "10s", target: DEVICE_RATE_SPIKE }, // ramp up
+        { duration: `${DURATION_SPIKE}m`, target: DEVICE_RATE_SPIKE }, // Hold spike
+        { duration: "10s", target: DEVICE_RATE }, // drop back
+        { duration: `${DURATION_COOL}m`, target: DEVICE_RATE }, // Recovery
       ],
       gracefulStop: "30s",
-      exec: "spikePost",
+      exec: "spike_telemetry_post",
     },
 
     // get
-    get_spike: {
+    spike_telemetry_get: {
       executor: "ramping-arrival-rate",
+      preAllocatedVUs: HUB_VU,
+      startRate: HUB_RATE, // start at baseline
       timeUnit: "1s",
-      preAllocatedVUs: VU_HUB,
-      maxVUs: VU_HUB_MAX,
-      startRate: RATE_GET, // start at baseline
 
       stages: [
-        { duration: `${DURATION_UP}s`, target: RATE_GET },  //Warmup
-        { duration: "10s", target: RATE_GET_MAX }, // ramp up
-        { duration: `${DURATION_SPIKE}s`, target: RATE_GET_MAX }, // Hold spike
-        { duration: "10s", target: RATE_GET }, // drop back
-        { duration: `${DURATION_DOWN}s`, target: RATE_GET }, // Recovery
+        { duration: `${DURATION_WARM}m`, target: HUB_RATE }, //Warmup
+        { duration: "10s", target: HUB_RATE_SPIKE }, // ramp up
+        { duration: `${DURATION_SPIKE}m`, target: HUB_RATE_SPIKE }, // Hold spike
+        { duration: "10s", target: HUB_RATE }, // drop back
+        { duration: `${DURATION_COOL}m`, target: HUB_RATE }, // Recovery
       ],
       gracefulStop: "30s",
-      exec: "spikeGet",
+      exec: "spike_telemetry_get",
     },
   },
 };
@@ -93,16 +90,16 @@ export const options = {
 // ==============================
 // Scenario functions
 // ==============================
-export function spikePost() {
+export function spike_telemetry_post() {
   postTelemetry();
 }
 
-export function spikeGet() {
+export function spike_telemetry_get() {
   getTelemetry();
 }
 
 // Optional default (ignored when scenarios are present, but OK to keep)
-export default spikePost;
+export default spike_telemetry_post;
 
 // ==============================
 // Summary output

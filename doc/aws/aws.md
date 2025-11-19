@@ -19,8 +19,11 @@ terraform plan
 terraform apply -auto-approve
 
 terraform destroy -auto-approve
+```
 
+- Test
 
+```sh
 # home
 curl "https://demo-ecs-mul-svc.arguswatcher.net"
 curl "https://demo-ecs-mul-svc.arguswatcher.net/health"

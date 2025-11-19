@@ -12,16 +12,15 @@ function parseNumberEnv(name, defaultValue) {
   return Number.isNaN(n) ? defaultValue : n;
 }
 
-const VU_PRE = parseNumberEnv("VU_PRE", 50);
-const VU_MAX = parseNumberEnv("VU_MAX", 600); // max # of devices
-const VU_HUB = parseNumberEnv("VU_HUB", 50); // # of hub to monitor real time data
-const INTERVAL_DEVICE = parseNumberEnv("INTERVAL_DEVICE", 20); // second; every 20s
-const INTERVAL_HUB = parseNumberEnv("INTERVAL_HUB", 20); // second; every 20s
-const DURATION = parseNumberEnv("DURATION", 10); // minute
+const DEVICE_VU = parseNumberEnv("DEVICE_VU", 600); // # of devices
+const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of device transmit data
+const DEVICE_RATE = Math.ceil(DEVICE_VU / DEVICE_INTERVAL); // post rate
 
-// Rates are calculated by VU and interval
-const RATE_POST = Math.ceil(VU_MAX / INTERVAL_DEVICE); // post QPS = devices / interval; 30 = 600 / 20
-const RATE_GET = Math.ceil(VU_HUB / INTERVAL_HUB); // get QPS = hub / interval; 2.5 = 50 / 20
+const HUB_VU = parseNumberEnv("HUB_VU", 60); // # of hub
+const HUB_INTERVAL = parseNumberEnv("HUB_INTERVAL", 10); // interval of hub request data
+const HUB_RATE = Math.ceil(HUB_VU / HUB_INTERVAL); // get rate
+
+const DURATION = parseNumberEnv("DURATION", 10);
 
 // ==============================
 // k6 options
@@ -47,27 +46,23 @@ export const options = {
 
   scenarios: {
     // devices
-    post_load_test: {
+    load_telemetry_post: {
       executor: "constant-arrival-rate",
-      rate: RATE_POST, // post rate
-      timeUnit: "1s",
+      preAllocatedVUs: DEVICE_VU,
+      rate: DEVICE_RATE, // post rate
       duration: `${DURATION}m`,
-      preAllocatedVUs: VU_PRE,
-      maxVUs: VU_MAX,
       gracefulStop: "30s",
-      exec: "loadTestPost",
+      exec: "load_telemetry_post",
     },
 
     // hub dashboard
-    get_load_test: {
+    load_telemetry_get: {
       executor: "constant-arrival-rate",
-      rate: RATE_GET, // get rate
-      timeUnit: "1s",
+      preAllocatedVUs: HUB_VU,
+      rate: HUB_RATE, // get rate
       duration: `${DURATION}m`,
-      preAllocatedVUs: VU_HUB,
-      maxVUs: VU_HUB,
       gracefulStop: "30s",
-      exec: "loadTestGet",
+      exec: "load_telemetry_get",
     },
   },
 };
@@ -75,15 +70,15 @@ export const options = {
 // ==============================
 // Scenario function
 // ==============================
-export function loadTestPost() {
+export function load_telemetry_post() {
   postTelemetry();
 }
 
-export function loadTestGet() {
+export function load_telemetry_get() {
   getTelemetry();
 }
 
-export default loadTestPost;
+export default load_telemetry_post;
 
 // ==============================
 // Summary output

@@ -112,8 +112,7 @@ export function getDevices() {
   });
 
   const deviceDetailOk = check(deviceDetailResp, {
-    "device_get_by_uuid 200 or 404": (r) =>
-      r.status === 200 || r.status === 404,
+    "device_get_by_uuid 200 or": (r) => r.status === 200,
   });
   recordError(deviceDetailOk);
 }
@@ -134,7 +133,7 @@ export function getTelemetry() {
   });
 
   const telemetryOk = check(telemetryResp, {
-    "telemetry_get 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "telemetry_get 200": (r) => r.status === 200 || r.status === 404,
     "telemetry_get json array when 200": (r) => {
       if (r.status !== 200) return true;
       const body = safeJson(r);

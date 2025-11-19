@@ -12,20 +12,15 @@ function parseNumberEnv(name, defaultValue) {
   return Number.isNaN(n) ? defaultValue : n;
 }
 
-const VU_DEVICE = parseNumberEnv("VU_DEVICE", 50); // # of devices
-const VU_DEVICE_MAX = parseNumberEnv("VU_DEVICE_MAX", 600); // max # of devices
-const VU_HUB = parseNumberEnv("VU_HUB", 10); // # of hub to monitor real time data
-const VU_HUB_MAX = parseNumberEnv("VU_HUB_MAX", 30); // max # of hub to monitor real time data
+const DEVICE_VU = parseNumberEnv("DEVICE_VU", 5000); // # of devices
+const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of device transmit data
+const DEVICE_RATE = Math.ceil(DEVICE_VU / DEVICE_INTERVAL); // post rate
 
-const RATE_POST = parseNumberEnv("RATE_POST", 50); // baseline post
-const RATE_POST_MAX = parseNumberEnv("RATE_POST_MAX", 600); // max post
+const HUB_VU = Math.ceil(DEVICE_VU * 0.1); // # of hub
+const HUB_INTERVAL = parseNumberEnv("HUB_INTERVAL", 10); // interval of hub request data
+const HUB_RATE = Math.ceil(HUB_VU / HUB_INTERVAL); // get rate
 
-const RATE_GET = parseNumberEnv("RATE_GET", 5); // baseline get; baseline post/10
-const RATE_GET_MAX = parseNumberEnv("RATE_GET_MAX", 60); // max get; max post/10
-
-const DURATION_UP = parseNumberEnv("DURATION_UP", 60 * 10); // second;
-const DURATION_DOWN = parseNumberEnv("DURATION_DOWN", 60 * 10); // second;
-const DURATION_HOLD = parseNumberEnv("DURATION_HOLD", 60 * 10); // second;
+const DURATION_STAGE = parseNumberEnv("DURATION_STAGE", 3); // minute;
 
 // ==============================
 // k6 options
@@ -66,41 +61,68 @@ export const options = {
   },
 
   scenarios: {
-    // Stressing writes (POST /telemetry)
-    stress_post_telemetry: {
+    // post
+    stress_telemetry_post: {
       executor: "ramping-arrival-rate",
-      timeUnit: "1s",
-      preAllocatedVUs: VU_DEVICE,
-      maxVUs: VU_DEVICE_MAX,
-      startRate: RATE_POST,
-
-      // With defaults: total ≈ 50 minutes (30 up + 10 hold + 10 down)
+      preAllocatedVUs: DEVICE_VU,
       stages: [
-        { duration: `${DURATION_UP}s`, target: RATE_POST_MAX },
-        { duration: `${DURATION_HOLD}s`, target: RATE_POST_MAX },
-        { duration: `${DURATION_DOWN}s`, target: RATE_POST },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.1 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.1 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.2 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.2 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.3 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.3 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.4 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.4 },
+        // { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.5 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.5 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.6 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.6 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.7 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.7 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.8 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.8 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.9 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 0.9 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 1 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 1 },
+        { duration: `${DURATION_STAGE}m`, target: DEVICE_RATE * 1 },
       ],
 
       gracefulStop: "60s",
-      exec: "stress_post_telemetry",
+      exec: "stress_telemetry_post",
     },
 
-    // Stressing reads (GET /telemetry)
-    stress_get_telemetry: {
+    // get
+    stress_telemetry_get: {
       executor: "ramping-arrival-rate",
-      timeUnit: "1s",
-      preAllocatedVUs: VU_HUB,
-      maxVUs: VU_HUB_MAX,
-      startRate: RATE_GET,
-
+      preAllocatedVUs: HUB_VU,
       stages: [
-        { duration: `${DURATION_UP}s`, target: RATE_GET_MAX },
-        { duration: `${DURATION_HOLD}s`, target: RATE_GET_MAX },
-        { duration: `${DURATION_DOWN}s`, target: RATE_GET },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.1) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.1) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.2) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.2) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.3) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.3) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.4) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.4) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.5) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.5) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.6) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.6) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.7) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.7) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.8) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.8) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.9) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 0.9) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 1) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 1) },
+        { duration: `${DURATION_STAGE}m`, target: Math.ceil(HUB_RATE * 1) },
       ],
 
       gracefulStop: "60s",
-      exec: "stress_get_telemetry",
+      exec: "stress_telemetry_get",
     },
   },
 };
@@ -108,15 +130,15 @@ export const options = {
 // ==============================
 // Scenario functions
 // ==============================
-export function stress_post_telemetry() {
+export function stress_telemetry_post() {
   postTelemetry();
 }
 
-export function stress_get_telemetry() {
+export function stress_telemetry_get() {
   getTelemetry();
 }
 
-export default stress_post_telemetry;
+export default stress_telemetry_post;
 
 // ==============================
 // Summary output

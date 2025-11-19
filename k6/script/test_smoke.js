@@ -1,4 +1,4 @@
-import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
+// test_smoke.js
 import {
   getHome,
   getHealth,
@@ -7,6 +7,7 @@ import {
   postTelemetry,
   errorRate,
 } from "./target_url.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
 
 // ==============================
 // Environment parameters
@@ -18,19 +19,10 @@ function parseNumberEnv(name, defaultValue) {
   return Number.isNaN(n) ? defaultValue : n;
 }
 
-const DEVICE_VU = parseNumberEnv("DEVICE_VU", 50); // # of devices
-const DEVICE_VU_MAX = parseNumberEnv("DEVICE_VU_MAX", 600); // max # of devices
-const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of device transmit data
-const DEVICE_RATE = DEVICE_VU / DEVICE_INTERVAL; // post rate
-const DEVICE_RATE_MAX = DEVICE_VU_MAX / DEVICE_INTERVAL; // post max rate
-
-const HUB_VU = parseNumberEnv("HUB_VU", 50); // # of hub
-const HUB_VU_MAX = parseNumberEnv("HUB_VU_MAX", 600); // max # of hub
-const HUB_INTERVAL = parseNumberEnv("HUB_INTERVAL", 10); // interval of hub request data
-const HUB_RATE = HUB_VU / HUB_INTERVAL; // get rate
-const HUB_RATE_MAX = HUB_VU_MAX / HUB_INTERVAL; // get max rate
-
-const DURATION = parseNumberEnv("DURATION", 10);
+const VU = parseNumberEnv("VU", 10); // # of devices
+const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of hub request data
+const RATE = Math.ceil(VU / DEVICE_INTERVAL); // rate
+const DURATION = parseNumberEnv("DURATION", 1); // minute
 
 // ==============================
 // k6 options
@@ -49,15 +41,13 @@ export const options = {
   },
 
   scenarios: {
-    smoke_home: {
+    smoke_test: {
       executor: "constant-arrival-rate",
-      rate: DEVICE_RATE, // iterations per second
-      duration: `${DURATION}s`,
-      timeUnit: "1s",
-      preAllocatedVUs: DEVICE_VU,
-      maxVUs: DEVICE_VU_MAX,
+      preAllocatedVUs: VU,
+      rate: RATE, // iterations per second
+      duration: `${DURATION}m`,
       gracefulStop: "10s",
-      exec: "smokeTest",
+      exec: "smoke_test",
     },
   },
 };
@@ -65,7 +55,7 @@ export const options = {
 // ==============================
 // Scenario function
 // ==============================
-export function smokeHome() {
+export function smoke_test() {
   getHome();
   getHealth();
   getDevices();
@@ -73,7 +63,7 @@ export function smokeHome() {
   postTelemetry();
 }
 
-export default smokeTest;
+export default smoke_test;
 
 // ==============================
 // Summary output

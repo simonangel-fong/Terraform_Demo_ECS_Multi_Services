@@ -51,7 +51,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA db_schema
 ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA db_schema
     GRANT USAGE, SELECT ON SEQUENCES TO app_user, app_readonly;
 
-
+SET ROLE app_owner;
 -- function: set the updated_at column
 CREATE OR REPLACE FUNCTION db_schema.set_updated_at()
 RETURNS trigger
@@ -63,6 +63,8 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+
+RESET ROLE;
 
 -- confirm schema
 SELECT 

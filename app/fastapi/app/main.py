@@ -1,6 +1,6 @@
 # app/main.py
 from __future__ import annotations
-
+import os
 from fastapi import FastAPI
 
 from .config.setting import settings
@@ -8,6 +8,8 @@ from .routers import health, devices, telemetry
 from .config.logging import setup_logging
 
 setup_logging()
+
+HOSTNAME = os.getenv("HOSTNAME", "my_host")
 
 app = FastAPI(
     title="IoT Device Management API",
@@ -51,6 +53,7 @@ async def home() -> dict:
     if settings.debug:
         db_cfg = settings.database
         response["database"] = {
+            "fastapi_host": HOSTNAME,
             "host": db_cfg.host,
             "port": db_cfg.port,
             "db_name": db_cfg.db_name,

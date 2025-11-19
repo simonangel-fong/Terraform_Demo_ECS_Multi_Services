@@ -1,6 +1,6 @@
-// test_baseline_phase1.js
+// test_baseline.js
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
-import { postTelemetry, errorRate } from "./target_url.js";
+import { postTelemetry, getTelemetry, errorRate } from "./target_url.js";
 
 // ==============================
 // Environment parameters
@@ -12,12 +12,15 @@ function parseNumberEnv(name, defaultValue) {
   return Number.isNaN(n) ? defaultValue : n;
 }
 
-const RATE = parseNumberEnv("RATE", 10); // RATE 10 = 200 devices / every 20s
-const DURATION = parseNumberEnv("DURATION", 600); // second
-const VU_PRE = parseNumberEnv("VU_PRE", 20); // at least 20 devices
-const VU_MAX = parseNumberEnv("VU_MAX", 200); // max 200 devices
+const DEVICE_VU = parseNumberEnv("DEVICE_VU", 100); // # of devices
+const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of device transmit data
+const DEVICE_RATE = Math.ceil(DEVICE_VU / DEVICE_INTERVAL); // post rate
 
-const DURATION_MINUTES = parseNumberEnv("DURATION_MINUTES", 45);
+const HUB_VU = parseNumberEnv("HUB_VU", 10); // # of hub
+const HUB_INTERVAL = parseNumberEnv("HUB_INTERVAL", 10); // interval of hub request data
+const HUB_RATE = Math.ceil(HUB_VU / HUB_INTERVAL); // get rate
+
+const DURATION = parseNumberEnv("DURATION", 10);
 
 // ==============================
 // k6 options
@@ -37,15 +40,23 @@ export const options = {
   },
 
   scenarios: {
-    post_baseline_test: {
+    // device
+    baseline_telemetry_post: {
       executor: "constant-arrival-rate",
-      rate: RATE, // writes per second
-      timeUnit: "1s",
-      duration: `${DURATION}s`,
-      preAllocatedVUs: VU_PRE,
-      maxVUs: VU_MAX,
+      preAllocatedVUs: DEVICE_VU,
+      rate: DEVICE_RATE, // writes per second
+      duration: `${DURATION}m`,
       gracefulStop: "30s",
-      exec: "baselineTest",
+      exec: "baseline_telemetry_post",
+    },
+    // dashboard
+    baseline_telemetry_get: {
+      executor: "constant-arrival-rate",
+      preAllocatedVUs: HUB_VU,
+      rate: HUB_RATE, // read per second
+      duration: `${DURATION}m`,
+      gracefulStop: "10s",
+      exec: "baseline_telemetry_get",
     },
   },
 };
@@ -53,18 +64,22 @@ export const options = {
 // ==============================
 // Scenario function
 // ==============================
-export function baselineTest() {
-  postTelemetry(); // post heavy
+export function baseline_telemetry_post() {
+  postTelemetry();
 }
 
-export default baselineTest;
+export function baseline_telemetry_get() {
+  getTelemetry();
+}
+
+export default baseline_telemetry_post;
 
 // ==============================
 // Summary output
 // ==============================
 export function handleSummary(data) {
   return {
-    "summary_baseline_phase1.json": JSON.stringify(data, null, 2),
+    "summary_baseline.json": JSON.stringify(data, null, 2),
     stdout: textSummary(data, { indent: " ", enableColors: true }),
   };
 }
