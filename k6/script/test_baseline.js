@@ -37,7 +37,7 @@ export const options = {
   },
 
   scenarios: {
-    baseline_phase1: {
+    post_baseline_test: {
       executor: "constant-arrival-rate",
       rate: RATE, // writes per second
       timeUnit: "1s",

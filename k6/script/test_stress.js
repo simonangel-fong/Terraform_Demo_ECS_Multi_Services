@@ -23,7 +23,7 @@ const RATE_POST_MAX = parseNumberEnv("RATE_POST_MAX", 600); // max post
 const RATE_GET = parseNumberEnv("RATE_GET", 5); // baseline get; baseline post/10
 const RATE_GET_MAX = parseNumberEnv("RATE_GET_MAX", 60); // max get; max post/10
 
-const DURATION_UP = parseNumberEnv("DURATION_UP", 60 * 30); // second;
+const DURATION_UP = parseNumberEnv("DURATION_UP", 60 * 10); // second;
 const DURATION_DOWN = parseNumberEnv("DURATION_DOWN", 60 * 10); // second;
 const DURATION_HOLD = parseNumberEnv("DURATION_HOLD", 60 * 10); // second;
 

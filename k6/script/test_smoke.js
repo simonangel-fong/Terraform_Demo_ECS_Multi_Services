@@ -18,11 +18,19 @@ function parseNumberEnv(name, defaultValue) {
   return Number.isNaN(n) ? defaultValue : n;
 }
 
-const RATE = parseNumberEnv("RATE", 2); // iterations per second
-const DURATION = parseNumberEnv("DURATION", 60); // seconds
+const DEVICE_VU = parseNumberEnv("DEVICE_VU", 50); // # of devices
+const DEVICE_VU_MAX = parseNumberEnv("DEVICE_VU_MAX", 600); // max # of devices
+const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of device transmit data
+const DEVICE_RATE = DEVICE_VU / DEVICE_INTERVAL; // post rate
+const DEVICE_RATE_MAX = DEVICE_VU_MAX / DEVICE_INTERVAL; // post max rate
 
-const VU_PRE = parseNumberEnv("VU_PRE", 3);
-const VU_MAX = parseNumberEnv("VU_MAX", 10);
+const HUB_VU = parseNumberEnv("HUB_VU", 50); // # of hub
+const HUB_VU_MAX = parseNumberEnv("HUB_VU_MAX", 600); // max # of hub
+const HUB_INTERVAL = parseNumberEnv("HUB_INTERVAL", 10); // interval of hub request data
+const HUB_RATE = HUB_VU / HUB_INTERVAL; // get rate
+const HUB_RATE_MAX = HUB_VU_MAX / HUB_INTERVAL; // get max rate
+
+const DURATION = parseNumberEnv("DURATION", 10);
 
 // ==============================
 // k6 options
@@ -41,13 +49,13 @@ export const options = {
   },
 
   scenarios: {
-    smoke: {
+    smoke_home: {
       executor: "constant-arrival-rate",
-      rate: RATE, // iterations per second
+      rate: DEVICE_RATE, // iterations per second
       duration: `${DURATION}s`,
       timeUnit: "1s",
-      preAllocatedVUs: VU_PRE,
-      maxVUs: VU_MAX,
+      preAllocatedVUs: DEVICE_VU,
+      maxVUs: DEVICE_VU_MAX,
       gracefulStop: "10s",
       exec: "smokeTest",
     },
@@ -57,7 +65,7 @@ export const options = {
 // ==============================
 // Scenario function
 // ==============================
-export function smokeTest() {
+export function smokeHome() {
   getHome();
   getHealth();
   getDevices();

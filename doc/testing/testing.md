@@ -109,7 +109,7 @@ docker run --rm --name k6_baseline -p 5665:5665 -e BASE="https://demo-ecs-mul-sv
 
 
 # load testing (Normal)
-docker run --rm --name k6_baseline -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_load.js
+docker run --rm --name k6_baseline -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_load.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_load.js
 
 
 # soak testing
@@ -121,6 +121,6 @@ docker run --rm --name k6_spike -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.a
 
 
 # stress testing
-docker run --rm --name k6_stress -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./testing/script:/scripts -v ./testing/report:/report/ grafana/k6 run /scripts/test_stress.js
+docker run --rm --name k6_stress -p 5665:5665 -e BASE="https://demo-ecs-mul-svc.arguswatcher.net" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_stress.js
 
 ```

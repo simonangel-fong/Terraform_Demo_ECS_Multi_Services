@@ -17,7 +17,7 @@ const VU_MAX = parseNumberEnv("VU_MAX", 600); // max # of devices
 const VU_HUB = parseNumberEnv("VU_HUB", 50); // # of hub to monitor real time data
 const INTERVAL_DEVICE = parseNumberEnv("INTERVAL_DEVICE", 20); // second; every 20s
 const INTERVAL_HUB = parseNumberEnv("INTERVAL_HUB", 20); // second; every 20s
-const DURATION = parseNumberEnv("DURATION", 20); // minute
+const DURATION = parseNumberEnv("DURATION", 10); // minute
 
 // Rates are calculated by VU and interval
 const RATE_POST = Math.ceil(VU_MAX / INTERVAL_DEVICE); // post QPS = devices / interval; 30 = 600 / 20
@@ -47,7 +47,7 @@ export const options = {
 
   scenarios: {
     // devices
-    postTelemetry: {
+    post_load_test: {
       executor: "constant-arrival-rate",
       rate: RATE_POST, // post rate
       timeUnit: "1s",
@@ -59,7 +59,7 @@ export const options = {
     },
 
     // hub dashboard
-    getTelemetry: {
+    get_load_test: {
       executor: "constant-arrival-rate",
       rate: RATE_GET, // get rate
       timeUnit: "1s",
