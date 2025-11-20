@@ -74,3 +74,24 @@ app.include_router(device.router)
 
 # Device-facing telemetry ingestion and listing endpoints
 app.include_router(telemetry.router)
+
+
+
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+import redis
+
+try:
+    # decode_responses=True ensures that get() returns strings instead of bytes
+    redis_client = redis.Redis(
+        host=REDIS_HOST, 
+        port=REDIS_PORT, 
+        decode_responses=True
+    )
+    # Check the connection
+    redis_client.ping()
+    print(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
+except redis.exceptions.ConnectionError as e:
+    print(f"Could not connect to Redis: {e}")
+    # In a real app, you might want to handle this more gracefully
+    redis_client = None

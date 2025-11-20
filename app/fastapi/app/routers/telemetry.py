@@ -7,23 +7,34 @@ import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Path, Query, status
-
-from sqlalchemy import select
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    Header,
+    HTTPException,
+    Path,
+    Query,
+    status,
+)
+from sqlalchemy import select, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.database import get_db
-from ..models.device_registry import DeviceRegistry
-from ..models.telemetry_event import TelemetryEvent
-from ..schemas.telemetry_event import TelemetryCreate, TelemetryItem
-
-from ..models.telemetry_latest import TelemetryLatest
-from ..schemas.telemetry_latest import TelemetryLatestItem
+from ..models import DeviceRegistry, TelemetryEvent, TelemetryLatest
+from ..schemas import (
+    TelemetryCreate,
+    TelemetryItem,
+    TelemetryCountItem,
+    TelemetryLatestItem,
+)
 
 router = APIRouter(
     prefix="/telemetry",
     tags=["telemetry"],
+    # Optional: hide nulls in responses if you want a cleaner payload:
+    # response_model_exclude_none=True,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,15 +50,14 @@ def verify_api_key(api_key: str, stored_hash: str | None) -> bool:
     """
     Verify a plain-text API key against a stored SHA-256 hex digest.
 
-    Notes:
-    - The stored hash is expected to be a hex-encoded SHA-256 digest.
-    - Comparison is done using hmac.compare_digest to reduce timing attacks.
+    The stored hash is expected to be a hex-encoded SHA-256 digest.
+    Comparison uses hmac.compare_digest to reduce timing attacks.
     """
     if not stored_hash:
         return False
+
     stored_hash = stored_hash.strip().lower()
     candidate_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
-    print(candidate_hash)
     return hmac.compare_digest(candidate_hash, stored_hash)
 
 
@@ -129,8 +139,7 @@ async def get_authenticated_device(
         extra={"device_uuid": str(device_uuid)},
     )
 
-    stmt = select(DeviceRegistry).where(
-        DeviceRegistry.device_uuid == device_uuid)
+    stmt = select(DeviceRegistry).where(DeviceRegistry.device_uuid == device_uuid)
 
     try:
         result = await db.execute(stmt)
@@ -261,9 +270,7 @@ async def list_telemetry_for_device(
     except SQLAlchemyError as exc:
         logger.exception(
             "Database error while listing telemetry",
-            extra={
-                "device_uuid": str(device.device_uuid),
-            },
+            extra={"device_uuid": str(device.device_uuid)},
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -299,6 +306,7 @@ async def list_telemetry_for_device(
 async def create_telemetry_for_device(
     device: DeviceRegistry = Depends(get_authenticated_device),
     payload: TelemetryCreate = Body(
+        ...,
         description="Telemetry payload containing coordinates and optional device timestamp.",
     ),
     db: AsyncSession = Depends(get_db),
@@ -345,6 +353,7 @@ async def create_telemetry_for_device(
         },
     )
     return telemetry
+
 
 # ============================================================
 # GET /telemetry/latest/{device_uuid}
@@ -409,3 +418,65 @@ async def get_latest_telemetry_for_device(
         },
     )
     return latest
+
+
+# ============================================================
+# GET /telemetry/count/{device_uuid}
+# ============================================================
+@router.get(
+    "/count/{device_uuid}",
+    summary="Get total telemetry event count for a device (debug)",
+    description=(
+        "Return the total number of telemetry events stored for the given device UUID. "
+        "This endpoint is intended for debugging and operational verification. "
+        "The device must authenticate using the `X-API-Key` header."
+    ),
+    response_model=TelemetryCountItem,
+)
+async def get_telemetry_count_for_device(
+    device: DeviceRegistry = Depends(get_authenticated_device),
+    db: AsyncSession = Depends(get_db),
+) -> TelemetryCountItem:
+    """
+    Return the total telemetry event count for the authenticated device.
+
+    This is a debug/operational endpoint and is not meant for production-facing
+    client use (e.g. mobile apps). It simply performs a COUNT(*) on telemetry_event
+    filtered by device_uuid.
+    """
+    logger.debug(
+        "Fetching telemetry event count for device",
+        extra={"device_uuid": str(device.device_uuid)},
+    )
+
+    stmt = (
+        select(func.count())
+        .select_from(TelemetryEvent)
+        .where(TelemetryEvent.device_uuid == device.device_uuid)
+    )
+
+    try:
+        result = await db.execute(stmt)
+        total_events = result.scalar_one()
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database error while counting telemetry events",
+            extra={"device_uuid": str(device.device_uuid)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve telemetry count.",
+        ) from exc
+
+    logger.debug(
+        "Telemetry event count fetched successfully",
+        extra={
+            "device_uuid": str(device.device_uuid),
+            "total_events": total_events,
+        },
+    )
+
+    return TelemetryCountItem(
+        device_uuid=device.device_uuid,
+        total_events=total_events,
+    )

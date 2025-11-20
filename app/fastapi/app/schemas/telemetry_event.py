@@ -63,3 +63,8 @@ class TelemetryItem(ORMModel):
         ),
         examples=["2025-11-17T12:34:56Z"],
     )
+
+
+class TelemetryCountItem(BaseModel):
+    device_uuid: UUID
+    total_events: int

@@ -1,20 +1,24 @@
 // test_smoke.js
-import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
-import { parseNumberEnv, getDeviceForVU } from "./common.js";
 import {
   getHome,
   getHealth,
-  getHealthDB,
   getDevices,
-  getTelemetryLatest,
+  getTelemetry,
   postTelemetry,
+  errorRate,
 } from "./target_url.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.4/index.js";
 
 // ==============================
 // Environment parameters
 // ==============================
+function parseNumberEnv(name, defaultValue) {
+  const raw = __ENV[name];
+  if (raw === undefined) return defaultValue;
+  const n = Number(raw);
+  return Number.isNaN(n) ? defaultValue : n;
+}
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:8000";
 const VU = parseNumberEnv("VU", 10); // # of devices
 const DEVICE_INTERVAL = parseNumberEnv("DEVICE_INTERVAL", 10); // interval of hub request data
 const RATE = Math.ceil(VU / DEVICE_INTERVAL); // rate
@@ -28,6 +32,7 @@ export const options = {
     name: "Smoke Testing",
   },
   thresholds: {
+    errors: ["rate<0.01"], // Logical errors (failed checks)
     http_req_failed: ["rate<0.01"], // HTTP-level failures
     http_req_duration: ["p(95)<500"], // Global latency guardrail
 
@@ -51,18 +56,11 @@ export const options = {
 // Scenario function
 // ==============================
 export function smoke_test() {
-  // init device
-  const device = getDeviceForVU();
-
-  // Basic platform checks
-  getHome({ base_url: BASE_URL });
-  getHealth({ base_url: BASE_URL });
-  getHealthDB({ base_url: BASE_URL });
-  getDevices({ base_url: BASE_URL });
-
-  // telemetry
-  getTelemetryLatest({ base_url: BASE_URL, device });
-  postTelemetry({ base_url: BASE_URL, device });
+  getHome();
+  getHealth();
+  getDevices();
+  getTelemetry();
+  postTelemetry();
 }
 
 export default smoke_test;
