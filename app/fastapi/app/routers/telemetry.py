@@ -7,24 +7,16 @@ import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    Body,
-    Depends,
-    Header,
-    HTTPException,
-    Path,
-    Query,
-    status,
-)
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Path, Query, status
+
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
-from app.models.device import Device
-from app.models.telemetry import Telemetry
-from app.schemas.telemetry import TelemetryItem, TelemetryCreate
+from db.database import get_db
+from models.device_registry import DeviceRegistry
+from models.telemetry_event import TelemetryEvent
+from schemas.telemetry_event import TelemetryCreate, TelemetryItem
 
 router = APIRouter(
     prefix="/telemetry",
@@ -44,21 +36,9 @@ def verify_api_key(api_key: str, stored_hash: str | None) -> bool:
     """
     Verify a plain-text API key against a stored SHA-256 hex digest.
 
-    The stored hash is a 64-character hex string (from a CHAR(64) column)
-    and may contain leading/trailing whitespace. This function performs
-    a constant-time comparison to reduce timing side-channel risks.
-
-    Parameters
-    ----------
-    api_key : str
-        Plain-text API key presented by the device.
-    stored_hash : str | None
-        Hex-encoded SHA-256 digest stored in the database.
-
-    Returns
-    -------
-    bool
-        True if the API key matches the stored hash, False otherwise.
+    Notes:
+    - The stored hash is expected to be a hex-encoded SHA-256 digest.
+    - Comparison is done using hmac.compare_digest to reduce timing attacks.
     """
     if not stored_hash:
         return False
@@ -79,31 +59,17 @@ def normalize_time_window(
     Rules:
     - If either start_time or end_time is provided:
         * end_time missing  -> defaults to now() in UTC.
-        * start_time missing -> defaults to end_time - MAX_LATEST_SECONDS (bounded lookback).
-      In this case, `latest_seconds` is ignored.
+        * start_time missing -> defaults to end_time - MAX_LATEST_SECONDS.
+      In this case, latest_seconds is ignored.
     - If neither is provided:
         * Use [now() - latest_seconds, now()] in UTC.
     - All datetimes are converted to timezone-aware UTC.
     - If start_time is after end_time, an HTTP 400 is raised.
-
-    Parameters
-    ----------
-    start_time : datetime | None
-        Optional start of the time range.
-    end_time : datetime | None
-        Optional end of the time range.
-    latest_seconds : int
-        Lookback window in seconds when explicit times are not provided.
-
-    Returns
-    -------
-    (datetime, datetime)
-        Tuple of (start_time_utc, end_time_utc).
     """
     now_utc = datetime.now(timezone.utc)
 
     if start_time or end_time:
-        # Normalize end_time first
+        # Normalize end_time
         if end_time is None:
             end_time = now_utc
         elif end_time.tzinfo is None:
@@ -111,7 +77,7 @@ def normalize_time_window(
         else:
             end_time = end_time.astimezone(timezone.utc)
 
-        # Default start_time to a bounded range behind end_time
+        # Normalize start_time with bounded lookback
         if start_time is None:
             start_time = end_time - timedelta(seconds=MAX_LATEST_SECONDS)
         elif start_time.tzinfo is None:
@@ -134,7 +100,7 @@ def normalize_time_window(
 async def get_authenticated_device(
     device_uuid: UUID = Path(
         ...,
-        description="Device UUID burned into firmware and registered in the system.",
+        description="Device UUID burned into firmware and registered in the telemetry registry.",
     ),
     api_key: str = Header(
         ...,
@@ -142,33 +108,26 @@ async def get_authenticated_device(
         description="Plain-text API key issued to this device.",
     ),
     db: AsyncSession = Depends(get_db),
-) -> Device:
+) -> DeviceRegistry:
     """
     Authenticate a device using its UUID and API key.
 
-    This dependency performs the following steps:
-    1. Look up the device by UUID with `tracking_enabled = TRUE`.
+    Steps:
+    1. Look up the device by device_uuid in DeviceRegistry.
     2. Verify the provided API key against the stored hash.
-    3. Return the Device ORM instance on success.
+    3. Return the DeviceRegistry ORM instance on success.
 
-    Raises
-    ------
-    HTTPException
-        404 if the device is not found or tracking is disabled.
-        401 if the API key is invalid.
+    Errors:
+    - 404 if the device is not found in the registry.
+    - 401 if the API key is invalid.
     """
     logger.debug(
         "Authenticating device",
         extra={"device_uuid": str(device_uuid)},
     )
 
-    stmt = (
-        select(Device)
-        .where(
-            Device.device_uuid == device_uuid,
-            Device.tracking_enabled.is_(True),
-        )
-    )
+    stmt = select(DeviceRegistry).where(
+        DeviceRegistry.device_uuid == device_uuid)
 
     try:
         result = await db.execute(stmt)
@@ -183,15 +142,15 @@ async def get_authenticated_device(
             detail="Failed to authenticate device.",
         ) from exc
 
-    # For security, do not distinguish between "not found" and "tracking disabled".
     if device is None:
+        # Do not leak details about registry state beyond "not found".
         logger.info(
-            "Device not found or tracking disabled",
+            "Device not found in registry",
             extra={"device_uuid": str(device_uuid)},
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Device not found or tracking disabled.",
+            detail="Device not found.",
         )
 
     if not verify_api_key(api_key=api_key, stored_hash=device.api_key_hash):
@@ -199,7 +158,6 @@ async def get_authenticated_device(
             "Invalid API key for device",
             extra={"device_uuid": str(device_uuid)},
         )
-        # 401 is appropriate for invalid credentials; 404 could be used to reduce key enumeration.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key.",
@@ -219,16 +177,16 @@ async def get_authenticated_device(
     "/{device_uuid}",
     summary="List telemetry for a device",
     description=(
-        "Return a list of telemetry records for a specific device, identified by its UUID. "
+        "Return a list of telemetry events for a specific device, identified by its UUID. "
         "The device must authenticate using the `X-API-Key` header. The time window can "
         "be specified using `start_time` and `end_time`, or by using `latest_seconds` "
         "to request data from a recent lookback period.\n\n"
-        "Results are ordered by `recorded_at` in descending order (most recent first)."
+        "Results are ordered by `system_time_utc` in descending order (most recent first)."
     ),
     response_model=list[TelemetryItem],
 )
 async def list_telemetry_for_device(
-    device: Device = Depends(get_authenticated_device),
+    device: DeviceRegistry = Depends(get_authenticated_device),
     start_time: datetime | None = Query(
         default=None,
         description=(
@@ -264,10 +222,8 @@ async def list_telemetry_for_device(
     """
     Device-facing telemetry listing endpoint.
 
-    This endpoint is intended to be called by the device itself or by a trusted
-    client acting on behalf of the device. The device is authenticated via its
-    UUID (path) and API key (header). Only telemetry for the authenticated device
-    is returned.
+    The device is authenticated via its UUID (path) and API key (header).
+    Only telemetry for the authenticated device is returned.
     """
     start_time, end_time = normalize_time_window(
         start_time=start_time,
@@ -278,7 +234,6 @@ async def list_telemetry_for_device(
     logger.debug(
         "Listing telemetry for device",
         extra={
-            "device_id": device.id,
             "device_uuid": str(device.device_uuid),
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
@@ -287,13 +242,13 @@ async def list_telemetry_for_device(
     )
 
     stmt = (
-        select(Telemetry)
+        select(TelemetryEvent)
         .where(
-            Telemetry.device_id == device.id,
-            Telemetry.recorded_at >= start_time,
-            Telemetry.recorded_at <= end_time,
+            TelemetryEvent.device_uuid == device.device_uuid,
+            TelemetryEvent.system_time_utc >= start_time,
+            TelemetryEvent.system_time_utc <= end_time,
         )
-        .order_by(Telemetry.recorded_at.desc())
+        .order_by(TelemetryEvent.system_time_utc.desc())
         .limit(limit)
     )
 
@@ -304,7 +259,6 @@ async def list_telemetry_for_device(
         logger.exception(
             "Database error while listing telemetry",
             extra={
-                "device_id": device.id,
                 "device_uuid": str(device.device_uuid),
             },
         )
@@ -316,7 +270,6 @@ async def list_telemetry_for_device(
     logger.debug(
         "Telemetry listing succeeded",
         extra={
-            "device_id": device.id,
             "device_uuid": str(device.device_uuid),
             "returned_count": len(rows),
         },
@@ -331,16 +284,17 @@ async def list_telemetry_for_device(
     "/{device_uuid}",
     summary="Ingest telemetry for a device",
     description=(
-        "Ingest a single telemetry record for a specific device identified by its UUID. "
+        "Ingest a single telemetry event for a specific device identified by its UUID. "
         "The device must authenticate using the `X-API-Key` header. The server assigns "
-        "`recorded_at` based on the current time in UTC. The device may optionally include "
-        "`device_time` to represent its own clock value."
+        "`system_time_utc` based on the current time in UTC. The device may optionally "
+        "include `device_time` to represent its own clock value; if omitted, it will "
+        "be set to the server ingestion time."
     ),
     response_model=TelemetryItem,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_telemetry_for_device(
-    device: Device = Depends(get_authenticated_device),
+    device: DeviceRegistry = Depends(get_authenticated_device),
     payload: TelemetryCreate = Body(
         ...,
         description="Telemetry payload containing coordinates and optional device timestamp.",
@@ -348,34 +302,33 @@ async def create_telemetry_for_device(
     db: AsyncSession = Depends(get_db),
 ) -> TelemetryItem:
     """
-    Ingest a single telemetry record for the authenticated device.
+    Ingest a single telemetry event for the authenticated device.
 
     The device is authenticated via `get_authenticated_device`. The server
-    sets `recorded_at` to the current UTC time. On success, the stored
-    telemetry record is returned.
+    sets `system_time_utc` to the current UTC time. If `device_time` is not
+    provided in the payload, it is set to the same value as `system_time_utc`.
     """
     now_utc = datetime.now(timezone.utc)
+    device_time = payload.device_time or now_utc
 
-    telemetry = Telemetry(
-        device_id=device.id,
+    telemetry = TelemetryEvent(
+        device_uuid=device.device_uuid,
         x_coord=payload.x_coord,
         y_coord=payload.y_coord,
-        recorded_at=now_utc,
-        device_time=payload.device_time,
+        device_time=device_time,
+        system_time_utc=now_utc,
     )
 
     db.add(telemetry)
 
     try:
         await db.commit()
+        await db.refresh(telemetry)
     except SQLAlchemyError as exc:
         await db.rollback()
         logger.exception(
             "Database error while storing telemetry",
-            extra={
-                "device_id": device.id,
-                "device_uuid": str(device.device_uuid),
-            },
+            extra={"device_uuid": str(device.device_uuid)},
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -385,9 +338,8 @@ async def create_telemetry_for_device(
     logger.debug(
         "Telemetry stored successfully",
         extra={
-            "device_id": device.id,
             "device_uuid": str(device.device_uuid),
-            "recorded_at": telemetry.recorded_at.isoformat(),
+            "system_time_utc": telemetry.system_time_utc.isoformat(),
         },
     )
     return telemetry

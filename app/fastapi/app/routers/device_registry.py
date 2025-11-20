@@ -1,8 +1,7 @@
-# app/routers/devices.py
+# app/routers/device_registry.py
 from __future__ import annotations
 
 import logging
-from typing import List
 from uuid import UUID
 
 from fastapi import (
@@ -18,19 +17,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.models.device import Device
-from app.schemas.device import DeviceItem
-
-# If you have an admin auth dependency, import and enable it here.
-# from app.auth.dependencies import get_current_admin_user
+from app.models.device_registry import DeviceRegistry
+from app.schemas.device_registry import DeviceRegistryItem
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/devices",
     tags=["devices"],
-    # Uncomment if this router should be admin-only:
-    # dependencies=[Depends(get_current_admin_user)],
 )
 
 
@@ -39,45 +33,30 @@ router = APIRouter(
 # ============================================================
 @router.get(
     "",
-    response_model=List[DeviceItem],
+    response_model=list[DeviceRegistryItem],
     summary="List registered devices",
     description=(
-        "Return a paginated list of registered devices. "
-        "Optionally filter results by tracking status.\n\n"
+        "Return a paginated list of devices registered in the telemetry registry.\n\n"
         "This endpoint is intended for administrative or operational use. "
         "IoT devices themselves should use the telemetry endpoints, not this API."
     ),
 )
 async def list_devices(
-    tracking_enabled: bool | None = Query(
-        default=None,
-        description=(
-            "If provided, returns only devices with the specified tracking status. "
-            "`true` returns devices with tracking enabled, `false` returns devices "
-            "with tracking explicitly disabled."
-        ),
-    ),
     limit: int = Query(
         default=100,
         ge=1,
         le=1000,
-        description=(
-            "Maximum number of devices to return. "
-            "Use together with `offset` for pagination."
-        ),
+        description="Maximum number of devices to return.",
     ),
     offset: int = Query(
         default=0,
         ge=0,
-        description=(
-            "Number of devices to skip before starting to collect the result set. "
-            "Use together with `limit` for pagination."
-        ),
+        description="Number of devices to skip before starting to collect the result set.",
     ),
     db: AsyncSession = Depends(get_db),
-) -> list[DeviceItem]:
+) -> list[DeviceRegistryItem]:
     """
-    List registered devices with optional filtering and pagination.
+    List registered devices with pagination.
 
     The result set is ordered by `created_at` in descending order so that newly
     registered devices appear first. This endpoint is typically used by
@@ -86,19 +65,17 @@ async def list_devices(
     logger.debug(
         "Listing devices",
         extra={
-            "tracking_enabled": tracking_enabled,
             "limit": limit,
             "offset": offset,
         },
     )
 
-    stmt = select(Device)
-
-    if tracking_enabled is not None:
-        stmt = stmt.where(Device.tracking_enabled == tracking_enabled)
-
-    # Explicit ordering ensures deterministic pagination.
-    stmt = stmt.order_by(Device.created_at.desc()).limit(limit).offset(offset)
+    stmt = (
+        select(DeviceRegistry)
+        .order_by(DeviceRegistry.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
 
     try:
         result = await db.execute(stmt)
@@ -107,7 +84,6 @@ async def list_devices(
         logger.exception(
             "Database error while listing devices",
             extra={
-                "tracking_enabled": tracking_enabled,
                 "limit": limit,
                 "offset": offset,
             },
@@ -120,7 +96,6 @@ async def list_devices(
     logger.debug(
         "Successfully listed devices",
         extra={
-            "tracking_enabled": tracking_enabled,
             "limit": limit,
             "offset": offset,
             "returned_count": len(devices),
@@ -134,7 +109,7 @@ async def list_devices(
 # ============================================================
 @router.get(
     "/{device_uuid}",
-    response_model=DeviceItem,
+    response_model=DeviceRegistryItem,
     summary="Get a device by UUID",
     description=(
         "Retrieve a single device using its globally unique device UUID. "
@@ -147,25 +122,24 @@ async def list_devices(
 async def get_device_by_uuid(
     device_uuid: UUID = Path(
         ...,
-        description="Device UUID assigned by the system and burned into firmware.",
+        description="Device UUID assigned to the device and stored in the telemetry registry.",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     ),
     db: AsyncSession = Depends(get_db),
-) -> DeviceItem:
+) -> DeviceRegistryItem:
     """
     Retrieve a device by its UUID.
 
     This endpoint is typically used by admin tools or internal services
     to inspect or troubleshoot registered devices. It does not expose
-    any secret material such as API keys or hashes; the response schema
-    (`DeviceItem`) must be defined accordingly.
+    any secret material such as API keys or hashes.
     """
     logger.debug(
         "Fetching device by UUID",
         extra={"device_uuid": str(device_uuid)},
     )
 
-    stmt = select(Device).where(Device.device_uuid == device_uuid)
+    stmt = select(DeviceRegistry).where(DeviceRegistry.device_uuid == device_uuid)
 
     try:
         result = await db.execute(stmt)
