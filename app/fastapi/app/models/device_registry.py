@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from .base import Base
-from .telemetry_latest import TelemetryLatest
+# from .telemetry_latest import TelemetryLatest
 
 
 class DeviceRegistry(Base):
@@ -21,8 +21,8 @@ class DeviceRegistry(Base):
 
     __tablename__ = "device_registry"
     __table_args__ = (
-        {"schema": "db_schema"},
         Index("ix_device_registry_device_uuid", "device_uuid", unique=True),
+        {"schema": "db_schema"},
     )
 
     id: Mapped[int] = mapped_column(
@@ -33,8 +33,8 @@ class DeviceRegistry(Base):
 
     alias: Mapped[Optional[str]] = mapped_column(
         String(64),
-        nullable=True,
-        doc="Optional debug alias for the device.",
+        # nullable=False,
+        doc="debug alias for the device.",
     )
 
     device_uuid: Mapped[UUID_Type] = mapped_column(
@@ -65,14 +65,14 @@ class DeviceRegistry(Base):
         doc="Timestamp when this registry row was last updated (UTC).",
     )
 
-    # One-to-one relationship to TelemetryLatest.
-    latest_telemetry: Mapped[Optional["TelemetryLatest"]] = relationship(
-        "TelemetryLatest",
-        back_populates="device",
-        uselist=False,
-        lazy="joined",
-        doc="Latest telemetry snapshot for this device, if any.",
-    )
+    # # One-to-one relationship to TelemetryLatest.
+    # latest_telemetry: Mapped[Optional["TelemetryLatest"]] = relationship(
+    #     "TelemetryLatest",
+    #     back_populates="device",
+    #     uselist=False,
+    #     lazy="joined",
+    #     doc="Latest telemetry snapshot for this device, if any.",
+    # )
 
     def __repr__(self) -> str:
         return (

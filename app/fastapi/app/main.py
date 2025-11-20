@@ -4,7 +4,7 @@ import os
 from fastapi import FastAPI
 
 from .config.setting import settings
-from .routers import device_registry, health, telemetry
+from .routers import health, device, telemetry
 from .config.logging import setup_logging
 
 setup_logging()
@@ -70,7 +70,7 @@ async def home() -> dict:
 app.include_router(health.router)
 
 # Administrative device registry endpoints (UUID-based lookups)
-app.include_router(device_registry.router)
+app.include_router(device.router)
 
 # Device-facing telemetry ingestion and listing endpoints
 app.include_router(telemetry.router)

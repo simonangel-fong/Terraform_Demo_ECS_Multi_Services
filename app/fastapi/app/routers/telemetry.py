@@ -13,10 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.database import get_db
-from models.device_registry import DeviceRegistry
-from models.telemetry_event import TelemetryEvent
-from schemas.telemetry_event import TelemetryCreate, TelemetryItem
+from ..db.database import get_db
+from ..models.device_registry import DeviceRegistry
+from ..models.telemetry_event import TelemetryEvent
+from ..schemas.telemetry_event import TelemetryCreate, TelemetryItem
+
+from ..models.telemetry_latest import TelemetryLatest
+from ..schemas.telemetry_latest import TelemetryLatestItem
 
 router = APIRouter(
     prefix="/telemetry",
@@ -42,9 +45,9 @@ def verify_api_key(api_key: str, stored_hash: str | None) -> bool:
     """
     if not stored_hash:
         return False
-
     stored_hash = stored_hash.strip().lower()
     candidate_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    print(candidate_hash)
     return hmac.compare_digest(candidate_hash, stored_hash)
 
 
@@ -296,7 +299,6 @@ async def list_telemetry_for_device(
 async def create_telemetry_for_device(
     device: DeviceRegistry = Depends(get_authenticated_device),
     payload: TelemetryCreate = Body(
-        ...,
         description="Telemetry payload containing coordinates and optional device timestamp.",
     ),
     db: AsyncSession = Depends(get_db),
@@ -343,3 +345,67 @@ async def create_telemetry_for_device(
         },
     )
     return telemetry
+
+# ============================================================
+# GET /telemetry/latest/{device_uuid}
+# ============================================================
+@router.get(
+    "/latest/{device_uuid}",
+    summary="Get latest telemetry snapshot for a device",
+    description=(
+        "Return the latest known position for a specific device, identified by its UUID. "
+        "The device must authenticate using the `X-API-Key` header.\n\n"
+        "This endpoint reads from the telemetry_latest snapshot table, which is maintained "
+        "by the backend whenever new telemetry events are ingested."
+    ),
+    response_model=TelemetryLatestItem,
+)
+async def get_latest_telemetry_for_device(
+    device: DeviceRegistry = Depends(get_authenticated_device),
+    db: AsyncSession = Depends(get_db),
+) -> TelemetryLatestItem:
+    """
+    Return the latest telemetry snapshot for the authenticated device.
+
+    If no telemetry has ever been ingested for this device, a 404 is returned.
+    """
+    logger.debug(
+        "Fetching latest telemetry snapshot for device",
+        extra={"device_uuid": str(device.device_uuid)},
+    )
+
+    stmt = select(TelemetryLatest).where(
+        TelemetryLatest.device_uuid == device.device_uuid
+    )
+
+    try:
+        result = await db.execute(stmt)
+        latest = result.scalar_one_or_none()
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database error while fetching latest telemetry",
+            extra={"device_uuid": str(device.device_uuid)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve latest telemetry.",
+        ) from exc
+
+    if latest is None:
+        logger.info(
+            "No telemetry snapshot found for device",
+            extra={"device_uuid": str(device.device_uuid)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No telemetry available for this device.",
+        )
+
+    logger.debug(
+        "Latest telemetry snapshot fetched successfully",
+        extra={
+            "device_uuid": str(device.device_uuid),
+            "system_time_utc": latest.system_time_utc.isoformat(),
+        },
+    )
+    return latest

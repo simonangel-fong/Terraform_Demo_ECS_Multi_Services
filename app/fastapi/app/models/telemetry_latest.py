@@ -12,7 +12,7 @@ from sqlalchemy.sql import func
 
 from .base import Base
 
-from .device_registry import DeviceRegistry
+# from .device_registry import DeviceRegistry
 
 
 class TelemetryLatest(Base):
@@ -22,8 +22,8 @@ class TelemetryLatest(Base):
 
     __tablename__ = "telemetry_latest"
     __table_args__ = (
-        {"schema": "db_schema"},
         Index("idx_telemetry_latest_system_time_utc", "system_time_utc"),
+        {"schema": "db_schema"},
     )
 
     device_uuid: Mapped[UUID_Type] = mapped_column(
@@ -70,13 +70,13 @@ class TelemetryLatest(Base):
         doc="Server-side UTC time when this snapshot was last updated.",
     )
 
-    # One-to-one relationship to DeviceRegistry.
-    device: Mapped[Optional["DeviceRegistry"]] = relationship(
-        "DeviceRegistry",
-        back_populates="latest_telemetry",
-        lazy="joined",
-        doc="Associated device registry entry for this latest snapshot.",
-    )
+    # # One-to-one relationship to DeviceRegistry.
+    # device: Mapped[Optional["DeviceRegistry"]] = relationship(
+    #     "DeviceRegistry",
+    #     back_populates="latest_telemetry",
+    #     lazy="joined",
+    #     doc="Associated device registry entry for this latest snapshot.",
+    # )
 
     def __repr__(self) -> str:
         return (

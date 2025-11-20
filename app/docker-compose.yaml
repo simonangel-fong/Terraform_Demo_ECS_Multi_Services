@@ -21,7 +21,7 @@ services:
     # volumes:
     #   - pgdata:/var/lib/postgresql/data
     networks:
-      # - public_network
+      - public_network
       - private_network
     ports:
       - "5432:5432"

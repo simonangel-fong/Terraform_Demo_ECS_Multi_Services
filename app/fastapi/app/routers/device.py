@@ -16,9 +16,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
-from app.models.device_registry import DeviceRegistry
-from app.schemas.device_registry import DeviceRegistryItem
+from ..db.database import get_db
+from ..models.device_registry import DeviceRegistry
+from ..schemas.device_registry import DeviceRegistryItem
 
 logger = logging.getLogger(__name__)
 

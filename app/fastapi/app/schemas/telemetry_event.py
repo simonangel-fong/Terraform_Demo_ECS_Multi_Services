@@ -1,9 +1,9 @@
 # app/schemas/telemetry_event.py
+from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
-
 from .base import ORMModel
 
 
@@ -37,6 +37,9 @@ class TelemetryItem(ORMModel):
     A single telemetry event returned by the service.
     """
 
+    device_uuid: UUID = Field(
+        description="UUID.",
+    )
     x_coord: float = Field(
         description="X coordinate value.",
         examples=[1.2345],
