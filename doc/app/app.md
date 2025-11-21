@@ -14,6 +14,7 @@
   - [Develop with Docker Compose](#develop-with-docker-compose-1)
   - [Push to DockerHub](#push-to-dockerhub-1)
   - [Push to ECR](#push-to-ecr-1)
+- [K6](#k6)
 
 ---
 
@@ -201,6 +202,42 @@ docker push 099139718958.dkr.ecr.ca-central-1.amazonaws.com/demo-ecs-multi-svc/a
 
 # confirm
 aws ecr describe-images --repository-name demo-ecs-multi-svc/api
+```
+
+---
+
+## K6
+
+- Local
+
+```sh
+# start service
+docker compose -f app/docker-compose.yaml down -v && docker compose -f app/docker-compose.yaml up -d --build
+
+# smoke testing
+docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_smoke.html -v ./k6/script:/script -v ./k6/report:/report/ grafana/k6 run /script/test_smoke.js
+
+
+# baseline(ramp-up) testing
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_baseline.js
+
+
+# load testing (Normal)
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_load.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_load.js
+
+
+# soak testing (Same as load testing but for 8 hours)
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_soak.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_soak.js
+
+
+# spike testing
+docker run --rm --name k6_spike --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_spike.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_spike.js
+
+
+# stress testing
+docker run --rm --name k6_stress --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_stress.js
+
+
 ```
 
 ---
