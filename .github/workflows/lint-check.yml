@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     env:
-      DIR_AWS_INFRA: aws/infra
+      DIR_AWS_INFRA: aws/
       TF_LINT_VERSION: v0.53.0
       TF_PLUGIN_CACHE_DIR: /home/runner/.terraform.d/plugin-cache
     defaults:
