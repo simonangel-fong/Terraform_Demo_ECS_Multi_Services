@@ -1,4 +1,4 @@
-data "aws_region" "current" {}
+# data "aws_region" "current" {}
 
 # acm certificate
 provider "aws" {

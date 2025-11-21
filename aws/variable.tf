@@ -1,7 +1,10 @@
 # ##############################
 # APP
 # ##############################
-variable "project" { default = "demo-ecs-mul-svc" }
+variable "project" {
+  type    = string
+  default = "demo-ecs-mul-svc"
+}
 
 # ##############################
 # AWS
@@ -63,5 +66,6 @@ variable "vpc_private_subnets" {
 }
 
 variable "dns_domain" {
+  type    = string
   default = "arguswatcher.net"
 }
