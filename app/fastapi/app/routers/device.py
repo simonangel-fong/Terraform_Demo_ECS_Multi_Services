@@ -1,6 +1,7 @@
 # app/routers/device_registry.py
 from __future__ import annotations
 
+import json
 import logging
 from uuid import UUID
 
@@ -16,9 +17,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.database import get_db
-from ..models.device_registry import DeviceRegistry
-from ..schemas.device_registry import DeviceRegistryItem
+from ..db import get_db, redis_client
+from ..models import DeviceRegistry
+from ..schemas import DeviceRegistryItem
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,11 @@ router = APIRouter(
     tags=["devices"],
 )
 
-
 # ============================================================
 # GET /devices
 # ============================================================
+
+
 @router.get(
     "",
     response_model=list[DeviceRegistryItem],
@@ -76,7 +78,7 @@ async def list_devices(
         .limit(limit)
         .offset(offset)
     )
-
+    print(stmt)
     try:
         result = await db.execute(stmt)
         devices = result.scalars().all()
@@ -134,12 +136,30 @@ async def get_device_by_uuid(
     to inspect or troubleshoot registered devices. It does not expose
     any secret material such as API keys or hashes.
     """
+    cache_key = f"device_registry:{device_uuid}"
+
     logger.debug(
         "Fetching device by UUID",
         extra={"device_uuid": str(device_uuid)},
     )
 
-    stmt = select(DeviceRegistry).where(DeviceRegistry.device_uuid == device_uuid)
+    # Try cache first
+    try:
+        cached = await redis_client.get(cache_key)
+    except Exception:
+        cached = None  # Don't fail whole request because Redis is unhappy
+
+    if cached:
+        logger.debug(
+            "Cache hit for device",
+            extra={"device_uuid": str(device_uuid)},
+        )
+        data = json.loads(cached)
+        return DeviceRegistryItem.model_validate(data)
+
+    # if redis miss
+    stmt = select(DeviceRegistry).where(
+        DeviceRegistry.device_uuid == device_uuid)
 
     try:
         result = await db.execute(stmt)
@@ -162,6 +182,21 @@ async def get_device_by_uuid(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found.",
+        )
+
+    # Store in cache
+    try:
+        cache_device = DeviceRegistryItem.model_validate(device)
+        # 5 min TTL
+        await redis_client.set(cache_key, cache_device.model_dump_json(), ex=300)
+        logger.debug(
+            "Device cached",
+            extra={"device_uuid": str(device_uuid), "ttl": 300},
+        )
+    except Exception:
+        logger.warning(
+            "Failed to write device to Redis cache",
+            extra={"device_uuid": str(device_uuid)},
         )
 
     logger.debug(

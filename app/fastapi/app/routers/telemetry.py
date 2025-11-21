@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -21,7 +22,7 @@ from sqlalchemy import select, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.database import get_db
+from ..db import get_db, redis_client
 from ..models import DeviceRegistry, TelemetryEvent, TelemetryLatest
 from ..schemas import (
     TelemetryCreate,
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_LATEST_SECONDS = 1800       # 30 minutes
 MAX_LATEST_SECONDS = 24 * 3600      # 24 hours
 
+TELEMETRY_CACHE_TTL_SECONDS = 60    # Short TTL to limit staleness
 
 # ============================================================
 # Helper functions
@@ -49,9 +51,6 @@ MAX_LATEST_SECONDS = 24 * 3600      # 24 hours
 def verify_api_key(api_key: str, stored_hash: str | None) -> bool:
     """
     Verify a plain-text API key against a stored SHA-256 hex digest.
-
-    The stored hash is expected to be a hex-encoded SHA-256 digest.
-    Comparison uses hmac.compare_digest to reduce timing attacks.
     """
     if not stored_hash:
         return False
@@ -116,7 +115,6 @@ async def get_authenticated_device(
         description="Device UUID burned into firmware and registered in the telemetry registry.",
     ),
     api_key: str = Header(
-        ...,
         alias="X-API-Key",
         description="Plain-text API key issued to this device.",
     ),
@@ -155,7 +153,6 @@ async def get_authenticated_device(
         ) from exc
 
     if device is None:
-        # Do not leak details about registry state beyond "not found".
         logger.info(
             "Device not found in registry",
             extra={"device_uuid": str(device_uuid)},
@@ -179,6 +176,7 @@ async def get_authenticated_device(
         "Device authenticated successfully",
         extra={"device_uuid": str(device_uuid)},
     )
+
     return device
 
 
@@ -237,6 +235,7 @@ async def list_telemetry_for_device(
     The device is authenticated via its UUID (path) and API key (header).
     Only telemetry for the authenticated device is returned.
     """
+    # Normalize time window
     start_time, end_time = normalize_time_window(
         start_time=start_time,
         end_time=end_time,
@@ -253,6 +252,36 @@ async def list_telemetry_for_device(
         },
     )
 
+    cache_key = (
+        f"telemetry:{device.device_uuid}:"
+        f"{int(start_time.timestamp())}:"
+        f"{int(end_time.timestamp())}:"
+        f"{limit}"
+    )
+
+    # Try Redis cache
+    try:
+        cached = await redis_client.get(cache_key)
+    except Exception:
+        cached = None 
+
+    if cached:
+        logger.debug(
+            "Telemetry cache hit",
+            extra={"device_uuid": str(device.device_uuid), "cache_key": cache_key},
+        )
+        try:
+            payload = json.loads(cached)
+            items = [TelemetryItem.model_validate(obj) for obj in payload]
+            return items
+        except Exception:
+            # If cache is corrupted or incompatible, ignore and fall back to DB
+            logger.warning(
+                "Failed to deserialize telemetry cache payload, falling back to DB",
+                extra={"device_uuid": str(device.device_uuid), "cache_key": cache_key},
+            )
+
+    # Cache miss: query PostgreSQL
     stmt = (
         select(TelemetryEvent)
         .where(
@@ -277,14 +306,41 @@ async def list_telemetry_for_device(
             detail="Failed to retrieve telemetry.",
         ) from exc
 
+    # Convert ORM rows -> DTOs
+    items: list[TelemetryItem] = [
+        TelemetryItem.model_validate(row) for row in rows
+    ]
+
     logger.debug(
         "Telemetry listing succeeded",
         extra={
             "device_uuid": str(device.device_uuid),
-            "returned_count": len(rows),
+            "returned_count": len(items),
         },
     )
-    return rows
+
+    # Store in Redis cache
+    try:
+        await redis_client.set(
+            cache_key,
+            json.dumps([item.model_dump(mode="json") for item in items]),
+            ex=TELEMETRY_CACHE_TTL_SECONDS,
+        )
+        logger.debug(
+            "Telemetry cached",
+            extra={
+                "device_uuid": str(device.device_uuid),
+                "cache_key": cache_key,
+                "ttl": TELEMETRY_CACHE_TTL_SECONDS,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Failed to write telemetry to Redis cache",
+            extra={"device_uuid": str(device.device_uuid), "cache_key": cache_key},
+        )
+
+    return items
 
 
 # ============================================================
@@ -306,7 +362,6 @@ async def list_telemetry_for_device(
 async def create_telemetry_for_device(
     device: DeviceRegistry = Depends(get_authenticated_device),
     payload: TelemetryCreate = Body(
-        ...,
         description="Telemetry payload containing coordinates and optional device timestamp.",
     ),
     db: AsyncSession = Depends(get_db),
@@ -331,6 +386,7 @@ async def create_telemetry_for_device(
 
     db.add(telemetry)
 
+    # commit db
     try:
         await db.commit()
         await db.refresh(telemetry)
@@ -352,7 +408,32 @@ async def create_telemetry_for_device(
             "system_time_utc": telemetry.system_time_utc.isoformat(),
         },
     )
-    return telemetry
+
+    # Convert ORM
+    item = TelemetryItem.model_validate(telemetry)
+
+    # Cache in Redis
+    latest_key = f"telemetry:latest:{device.device_uuid}"
+    recent_list_key = f"telemetry:recent:{device.device_uuid}"
+
+    try:
+        # Store latest telemetry
+        await redis_client.set(
+            latest_key,
+            item.model_dump_json(),
+            ex=TELEMETRY_CACHE_TTL_SECONDS,  # TTL
+        )
+
+        # rolling list of recent events
+        await redis_client.lpush(recent_list_key, item.model_dump_json())
+        await redis_client.ltrim(recent_list_key, 0, 99)  # keep most recent 100
+    except Exception:
+        logger.warning(
+            "Failed to write telemetry to Redis cache",
+            extra={"device_uuid": str(device.device_uuid)},
+        )
+
+    return item
 
 
 # ============================================================
@@ -378,11 +459,44 @@ async def get_latest_telemetry_for_device(
 
     If no telemetry has ever been ingested for this device, a 404 is returned.
     """
+
+    device_uuid_str = str(device.device_uuid)
+    cache_key = f"telemetry:latest:{device_uuid_str}"
+
     logger.debug(
         "Fetching latest telemetry snapshot for device",
-        extra={"device_uuid": str(device.device_uuid)},
+        extra={
+            "device_uuid": device_uuid_str,
+            "cache_key": cache_key,
+        },
     )
+    
+    # Try Redis cache
+    try:
+        cached = await redis_client.get(cache_key)
+    except Exception:
+        cached = None
 
+    if cached:
+        try:
+            data = json.loads(cached)
+            item = TelemetryLatestItem.model_validate(data)
+            logger.debug(
+                "Latest telemetry snapshot cache hit",
+                extra={
+                    "device_uuid": device_uuid_str,
+                    "system_time_utc": item.system_time_utc.isoformat(),
+                },
+            )
+
+            return item
+        except Exception:
+            logger.warning(
+                "Failed to deserialize latest telemetry cache payload, falling back to DB",
+                extra={"device_uuid": device_uuid_str, "cache_key": cache_key},
+            )
+
+    # Cache miss: query PostgreSQL
     stmt = select(TelemetryLatest).where(
         TelemetryLatest.device_uuid == device.device_uuid
     )
@@ -393,7 +507,7 @@ async def get_latest_telemetry_for_device(
     except SQLAlchemyError as exc:
         logger.exception(
             "Database error while fetching latest telemetry",
-            extra={"device_uuid": str(device.device_uuid)},
+            extra={"device_uuid": device_uuid_str},
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -403,21 +517,46 @@ async def get_latest_telemetry_for_device(
     if latest is None:
         logger.info(
             "No telemetry snapshot found for device",
-            extra={"device_uuid": str(device.device_uuid)},
+            extra={"device_uuid": device_uuid_str},
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No telemetry available for this device.",
         )
 
+    # ORM -> DTO
+    item = TelemetryLatestItem.model_validate(latest)
+
     logger.debug(
-        "Latest telemetry snapshot fetched successfully",
+        "Latest telemetry snapshot fetched successfully from DB",
         extra={
-            "device_uuid": str(device.device_uuid),
-            "system_time_utc": latest.system_time_utc.isoformat(),
+            "device_uuid": device_uuid_str,
+            "system_time_utc": item.system_time_utc.isoformat(),
         },
     )
-    return latest
+
+    # Write-back to Redis
+    try:
+        await redis_client.set(
+            cache_key,
+            item.model_dump_json(),
+            ex=TELEMETRY_CACHE_TTL_SECONDS,  # TTL in seconds; tune as needed
+        )
+        logger.debug(
+            "Latest telemetry snapshot cached",
+            extra={
+                "device_uuid": device_uuid_str,
+                "cache_key": cache_key,
+                "ttl": TELEMETRY_CACHE_TTL_SECONDS,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Failed to write latest telemetry snapshot to Redis cache",
+            extra={"device_uuid": device_uuid_str, "cache_key": cache_key},
+        )
+
+    return item
 
 
 # ============================================================

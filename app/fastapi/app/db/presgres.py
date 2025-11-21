@@ -6,11 +6,13 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from ..config.setting import settings
+from ..config import get_settings
+
+settings = get_settings()
 
 # Async SQLAlchemy engine
 engine: AsyncEngine = create_async_engine(
-    settings.database_url,
+    settings.postgres_url,
     echo=settings.debug,          # SQL logging in debug mode only
     pool_pre_ping=settings.debug, # Validate connections before using them
     pool_size=10,                 # Persistent connections in the pool

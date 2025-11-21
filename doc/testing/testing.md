@@ -66,31 +66,30 @@
 
 ```sh
 # start service
-docker compose -f app/docker-compose.yaml down -v
-docker compose -f app/docker-compose.yaml up -d --build
+docker compose -f app/docker-compose.yaml down -v && docker compose -f app/docker-compose.yaml up -d --build
 
 # smoke testing
-docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE="http://nginx:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_smoke.html -v ./k6/script:/script -v ./k6/report:/report/ grafana/k6 run /script/test_smoke.js
+docker run --rm --name k6_smoke --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_smoke.html -v ./k6/script:/script -v ./k6/report:/report/ grafana/k6 run /script/test_smoke.js
 
 
 # baseline(ramp-up) testing
-docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://nginx:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_baseline.js
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_baseline.js
 
 
 # load testing (Normal)
-docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://nginx:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_baseline.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_load.js
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_load.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_load.js
 
 
 # soak testing (Same as load testing but for 8 hours)
-docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE="http://nginx:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_soak.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_soak.js
+docker run --rm --name k6_baseline --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_soak.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_soak.js
 
 
 # spike testing
-docker run --rm --name k6_spike --net=app_public_network -p 5665:5665 -e BASE="http://nginx:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_spike.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_spike.js
+docker run --rm --name k6_spike --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_spike.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_spike.js
 
 
 # stress testing
-docker run --rm --name k6_stress --net=app_public_network -p 5665:5665 -e BASE="http://nginx:8000" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_stress.js
+docker run --rm --name k6_stress --net=app_public_network -p 5665:5665 -e BASE_URL="http://nginx:8080" -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/report/test_stress.html -v ./k6/script:/scripts -v ./k6/report:/report/ grafana/k6 run /scripts/test_stress.js
 
 
 ```

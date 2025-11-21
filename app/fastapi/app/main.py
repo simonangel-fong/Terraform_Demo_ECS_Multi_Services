@@ -1,15 +1,18 @@
 # app/main.py
 from __future__ import annotations
+import redis
 import os
 from fastapi import FastAPI
 
-from .config.setting import settings
+from .config import get_settings
 from .routers import health, device, telemetry
 from .config.logging import setup_logging
 
 setup_logging()
 
 HOSTNAME = os.getenv("HOSTNAME", "my_host")
+
+settings = get_settings()
 
 app = FastAPI(
     title="IoT Device Management API",
@@ -39,7 +42,7 @@ async def home() -> dict:
     Return basic service metadata and status.
     """
     response: dict = {
-        "service": "iot-device-management-api",
+        "app": settings.app_name,
         "status": "ok",
         "environment": settings.env,
         "debug": settings.debug,
@@ -51,17 +54,26 @@ async def home() -> dict:
     }
 
     if settings.debug:
-        db_cfg = settings.database
-        response["database"] = {
+        response["fastapi"] = {
             "fastapi_host": HOSTNAME,
-            "host": db_cfg.host,
-            "port": db_cfg.port,
-            "db_name": db_cfg.db_name,
-            "user": db_cfg.user,
+        }
+        
+        pgdb_cfg = settings.postgres
+        response["postgres"] = {
+            "host": pgdb_cfg.host,
+            "port": pgdb_cfg.port,
+            "db_name": pgdb_cfg.db,
+            "user": pgdb_cfg.user,
+        }
+
+        rd_cfg = settings.redis
+        response["redis"] = {
+            "host": rd_cfg.host,
+            "port": rd_cfg.port,
+            "db_name": rd_cfg.db,
         }
 
     return response
-
 
 # ============================================================
 # Routers
@@ -75,23 +87,3 @@ app.include_router(device.router)
 # Device-facing telemetry ingestion and listing endpoints
 app.include_router(telemetry.router)
 
-
-
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-import redis
-
-try:
-    # decode_responses=True ensures that get() returns strings instead of bytes
-    redis_client = redis.Redis(
-        host=REDIS_HOST, 
-        port=REDIS_PORT, 
-        decode_responses=True
-    )
-    # Check the connection
-    redis_client.ping()
-    print(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
-except redis.exceptions.ConnectionError as e:
-    print(f"Could not connect to Redis: {e}")
-    # In a real app, you might want to handle this more gracefully
-    redis_client = None

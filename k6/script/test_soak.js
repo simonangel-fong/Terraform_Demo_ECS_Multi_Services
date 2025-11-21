@@ -16,7 +16,7 @@ const HUB_VU = parseNumberEnv("HUB_VU", 60); // # of hub
 const HUB_INTERVAL = parseNumberEnv("HUB_INTERVAL", 10); // interval of hub request data
 const HUB_RATE = Math.ceil(HUB_VU / HUB_INTERVAL); // get rate
 
-const DURATION = parseNumberEnv("DURATION", 1); // minute
+const DURATION = parseNumberEnv("DURATION", 120); // minute
 
 // ==============================
 // k6 options

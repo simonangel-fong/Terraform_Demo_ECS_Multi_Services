@@ -6,7 +6,9 @@ import logging.config
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-from app.config.setting import settings
+from .setting import get_settings
+
+settings = get_settings()
 
 
 def setup_logging() -> None:

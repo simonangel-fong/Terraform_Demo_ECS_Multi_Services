@@ -84,17 +84,26 @@ aws ecr describe-images --repository-name demo-ecs-multi-svc/db
 
 ### Create Project Env
 
+- Initialize Environment
+
 ```sh
 cd app/fastapi
 
 python -m venv .venv
+# activate
+.venv\Scripts\activate.bat
+
 python.exe -m pip install --upgrade pip
 
-pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv pydantic-settings pytest pytest-asyncio httpx
+pip install fastapi "uvicorn[standard]" "SQLAlchemy[asyncio]" asyncpg pydantic python-dotenv pydantic-settings pytest pytest-asyncio httpx redis
 
 pip install uvloop
 pip freeze > requirements.txt
+```
 
+- Develop
+
+```sh
 # python app/main.py
 uvicorn app.main:app --reload
 # uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -113,8 +122,7 @@ pip install pytest
 ### Develop with Docker Compose
 
 ```sh
-docker compose -f ./app/docker-compose.yaml down -v
-docker compose -f ./app/docker-compose.yaml up -d --build
+docker compose -f ./app/docker-compose.yaml down -v && docker compose -f ./app/docker-compose.yaml up -d --build
 
 # home
 curl http://localhost:8000/

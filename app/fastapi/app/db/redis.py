@@ -1,8 +1,11 @@
-import os
-import redis
-from typing import Optional, Union
-from redis import Redis
+# app/db/redisdb.py
+import redis.asyncio as redis
 
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+from ..config import get_settings
 
+settings = get_settings()
+
+redis_client = redis.from_url(
+    settings.redis_url,
+    decode_responses=True,
+)

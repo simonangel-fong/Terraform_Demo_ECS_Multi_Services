@@ -9,11 +9,13 @@ networks:
     internal: true
 
 services:
-  pgdb:
-    container_name: pgdb
+  postgres:
+    container_name: postgres
     build:
       context: ./pgdb/
       dockerfile: Dockerfile
+    env_file:
+      - fastapi/.env
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
@@ -21,7 +23,7 @@ services:
     # volumes:
     #   - pgdata:/var/lib/postgresql/data
     networks:
-      - public_network
+      # - public_network
       - private_network
     ports:
       - "5432:5432"
@@ -47,10 +49,13 @@ services:
 
   redis:
     container_name: redis
-    image: redis:latest
+    image: redis:7
+    restart: unless-stopped
+    networks:
+      # - public_network
+      - private_network
     ports:
       - "6379:6379"
-    restart: always
 
   fastapi01:
     container_name: fastapi01
@@ -62,19 +67,22 @@ services:
     environment:
       - ENV=dev
       - DEBUG=true
-      - DATABASE__HOST=pgdb
-      - DATABASE__PORT=5432
-      - DATABASE__DB_NAME=app_db
-      - DATABASE__USER=app_user
-      - DATABASE__PASSWORD=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_APP_USER=app_user
+      - POSTGRES_APP_DB=app_db
+      - POSTGRES_APP_PASSWORD=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     networks:
       # - public_network
       - private_network
     ports:
       - 8000:8000
     depends_on:
-      pgdb:
-        condition: service_healthy
+      - postgres
+      - redis
     deploy:
       resources:
         limits:
@@ -94,18 +102,22 @@ services:
     environment:
       - ENV=dev
       - DEBUG=true
-      - DATABASE__HOST=pgdb
-      - DATABASE__PORT=5432
-      - DATABASE__DB_NAME=app_db
-      - DATABASE__USER=app_user
-      - DATABASE__PASSWORD=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_APP_USER=app_user
+      - POSTGRES_APP_DB=app_db
+      - POSTGRES_APP_PASSWORD=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     networks:
+      # - public_network
       - private_network
     ports:
       - 8000:8000
     depends_on:
-      pgdb:
-        condition: service_healthy
+      - postgres
+      - redis
     deploy:
       resources:
         limits:
@@ -114,6 +126,7 @@ services:
         reservations:
           cpus: "1"
           memory: 256M
+
   fastapi03:
     container_name: fastapi03
     # image: simonangelfong/demo-ecs-svc-fastapi
@@ -124,18 +137,22 @@ services:
     environment:
       - ENV=dev
       - DEBUG=true
-      - DATABASE__HOST=pgdb
-      - DATABASE__PORT=5432
-      - DATABASE__DB_NAME=app_db
-      - DATABASE__USER=app_user
-      - DATABASE__PASSWORD=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_APP_USER=app_user
+      - POSTGRES_APP_DB=app_db
+      - POSTGRES_APP_PASSWORD=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     networks:
+      # - public_network
       - private_network
     ports:
       - 8000:8000
     depends_on:
-      pgdb:
-        condition: service_healthy
+      - postgres
+      - redis
     deploy:
       resources:
         limits:
@@ -155,18 +172,22 @@ services:
     environment:
       - ENV=dev
       - DEBUG=true
-      - DATABASE__HOST=pgdb
-      - DATABASE__PORT=5432
-      - DATABASE__DB_NAME=app_db
-      - DATABASE__USER=app_user
-      - DATABASE__PASSWORD=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_APP_USER=app_user
+      - POSTGRES_APP_DB=app_db
+      - POSTGRES_APP_PASSWORD=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     networks:
+      # - public_network
       - private_network
     ports:
       - 8000:8000
     depends_on:
-      pgdb:
-        condition: service_healthy
+      - postgres
+      - redis
     deploy:
       resources:
         limits:
@@ -184,7 +205,7 @@ services:
       - public_network
       - private_network
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       - fastapi01
       - fastapi02

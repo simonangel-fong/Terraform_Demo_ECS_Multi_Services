@@ -256,3 +256,4 @@ terraform.rc
 backend.config
 
 .vscode/
+logs/
