@@ -1,0 +1,167 @@
+name: UnitTest & LintCheck
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feature-api-dev"
+    paths:
+      - "app/**"
+      - "aws/**"
+      - ".github/workflows/feature-api-dev.yml"
+  pull_request:
+    branches:
+      - "master"
+      - "feature-api-staging"
+    paths:
+      - "app/**"
+      - "aws/**"
+
+# read only
+permissions:
+  contents: read
+
+# multiple trigger
+concurrency:
+  group: dev-cd-${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true # Cancel older runs
+
+jobs:
+  unit_test_fastapi:
+    name: Unit Test(FastAPI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    environment: api-dev
+    env:
+      PYTHON_VERSION: 3.11
+    defaults:
+      run:
+        working-directory: app/fastapi/
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ./requirements.txt
+
+      - name: Unit Test
+        run: |
+          pytest
+
+      - name: Send email notification
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "${{ job.status }} - ${{ github.workflow }}: ${{ vars.PROJECT}} ${{vars.APP}} (${{vars.ENV}})"
+          to: ${{ secrets.EMAIL_USERNAME }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          html_body: |
+            <h2>GitHub Actions CI/CD Notification</h2>
+            <p><b>Project</b>: ${{ vars.PROJECT}}</p>
+            <p><b>Application</b>: ${{ vars.APP}}</p>
+            <p><b>Repository</b>: ${{ github.repository }}</p>
+            <p><b>Env</b>: ${{ vars.ENV }}</p>
+            <p><b>Job</b>: ${{ github.job }}</p>
+            <p><b>Status</b>: ${{ job.status }}</p>
+            <p><b>Branch</b>: ${{ github.ref }}</p>
+            <p><b>Workflow</b>: ${{ github.workflow }}</p>
+            <p><b>Commit</b>: ${{ github.sha }}</p>
+            <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Run</a></p>
+
+  terraform_validate:
+    name: Terraform Validate
+    needs: unit_test_fastapi
+    runs-on: ubuntu-latest
+    environment: api-dev
+    env:
+      DIR_AWS_INFRA: aws/infra
+      TF_LINT_VERSION: v0.53.0
+      TF_PLUGIN_CACHE_DIR: /home/runner/.terraform.d/plugin-cache
+    defaults:
+      run:
+        working-directory: ${{ env.DIR_AWS_INFRA }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TF_VERSION }}
+
+      - name: Configure plugin cache dir
+        run: |
+          mkdir -pv /home/runner/.terraform.d/plugin-cache /home/runner/.tflint.d/plugins
+          echo 'plugin_cache_dir = "/home/runner/.terraform.d/plugin-cache"' > /home/runner/.terraformrc
+
+      - name: Cache Terraform plugin dir
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.terraform.d/plugin-cache
+          key: ${{ runner.os }}-terraform-${{ vars.TF_VERSION }}
+
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false -no-color
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive -no-color
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: ${{env.TF_LINT_VERSION}}
+
+      - name: Cache TFLint plugins
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.tflint.d/plugins
+          key: ${{ runner.os }}-tflint-${{ hashFiles('**/.tflint.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-tflint-
+
+      - name: TFLint
+        run: |
+          tflint --init
+          tflint -f compact
+
+      - name: Send email notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "${{ job.status }} - ${{ github.workflow }}: ${{ vars.PROJECT}} ${{vars.APP}} (${{vars.ENV}})"
+          to: ${{ secrets.EMAIL_USERNAME }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          html_body: |
+            <h2>GitHub Actions CI/CD Notification</h2>
+            <p><b>Project</b>: ${{ vars.PROJECT}}</p>
+            <p><b>Application</b>: ${{ vars.APP}}</p>
+            <p><b>Repository</b>: ${{ github.repository }}</p>
+            <p><b>Env</b>: ${{ vars.ENV }}</p>
+            <p><b>Job</b>: ${{ github.job }}</p>
+            <p><b>Status</b>: ${{ job.status }}</p>
+            <p><b>Branch</b>: ${{ github.ref }}</p>
+            <p><b>Workflow</b>: ${{ github.workflow }}</p>
+            <p><b>Commit</b>: ${{ github.sha }}</p>
+            <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Run</a></p>

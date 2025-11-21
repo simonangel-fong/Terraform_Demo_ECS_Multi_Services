@@ -1,0 +1,209 @@
+name: "Deploy API(Staging)"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feature-api-staging"
+    paths:
+      - "app/**"
+      - "aws/**"
+      - "kube/**"
+      - "testing/**"
+      - ".github/workflows/feature-api-staging.yml"
+
+# read write
+permissions:
+  contents: read
+  id-token: write
+
+# multiple trigger
+concurrency:
+  group: deploy-staging-cd-${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true # Cancel older runs
+
+jobs:
+  build_push_dockerhub:
+    name: Build&Push DockerHub(Staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    environment: api-staging
+    env:
+      DIR_FASTAPI: app/fastapi
+      DIR_NGINX: app/nginx
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v5
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: FastAPI - Extract metadata
+        id: fastapi-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.FASTAPI_REPO }}
+
+      - name: FastAPI - Build and push Docker image
+        id: fastapi-push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          context: ${{ env.DIR_FASTAPI }}
+          labels: ${{ steps.fastapi-meta.outputs.labels }}
+          tags: "${{ vars.FASTAPI_REPO }}:${{ vars.FASTAPI_VERSION }}-${{ vars.ENV }}"
+
+      - name: Nginx - Extract metadata
+        id: nginx-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.NGINX_REPO }}
+
+      - name: Nginx - Build and push Docker image
+        id: nginx-push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          context: ${{ env.DIR_NGINX }}
+          labels: ${{ steps.nginx-meta.outputs.labels }}
+          tags: "${{ vars.NGINX_REPO }}:${{ vars.NGINX_VERSION }}-${{ vars.ENV }}"
+
+      - name: Send email notification
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "${{ job.status }} - ${{ github.workflow }}: ${{ vars.PROJECT}} ${{vars.APP}} (${{vars.ENV}})"
+          to: ${{ secrets.EMAIL_USERNAME }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          html_body: |
+            <h2>GitHub Actions CI/CD Notification</h2>
+            <p><b>Project</b>: ${{ vars.PROJECT}}</p>
+            <p><b>Application</b>: ${{ vars.APP}}</p>
+            <p><b>Repository</b>: ${{ github.repository }}</p>
+            <p><b>Env</b>: ${{ vars.ENV }}</p>
+            <p><b>Job</b>: ${{ github.job }}</p>
+            <p><b>Status</b>: ${{ job.status }}</p>
+            <p><b>Branch</b>: ${{ github.ref }}</p>
+            <p><b>Workflow</b>: ${{ github.workflow }}</p>
+            <p><b>Commit</b>: ${{ github.sha }}</p>
+            <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Run</a></p>
+
+  deploy:
+    name: Deploy(Staging)
+    needs: build_push_dockerhub
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: api-staging
+    env:
+      TF_DIR: aws/infra/
+      TF_PLUGIN_CACHE_DIR: /home/runner/.terraform.d/plugin-cache
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_env: ${{ vars.ENV }}
+      KUBE_DIR: kube/
+      KUBE_CLUSTER_NAME: "${{ vars.PROJECT }}-${{ vars.APP }}-${{vars.ENV}}-eks"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.TF_AWS_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configure Terraform plugin cache
+        run: |
+          mkdir -pv ${{ env.TF_PLUGIN_CACHE_DIR }}
+          echo 'plugin_cache_dir = "${{ env.TF_PLUGIN_CACHE_DIR }}"' > ~/.terraformrc
+
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: ${{ runner.os }}-terraform-${{ vars.TF_VERSION }}
+
+      - name: Terraform init - S3 backend
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -reconfigure -input=false \
+            -backend-config="bucket=${{ vars.AWS_BACKEND_BUCKET }}" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="key=${{ vars.PROJECT }}/${{vars.APP}}/${{ vars.ENV }}/terraform.tfstate" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform fmt -check -recursive -no-color
+          terraform validate -no-color
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_DIR }}
+        id: plan
+        run: terraform plan -out=tfplan -input=false -no-color
+
+      - name: Show plan (JSON)
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform show -json tfplan > tfplan.json
+
+      - name: Save plan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-bundle
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            ${{ env.TF_DIR }}/tfplan.json
+          retention-days: 3
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -auto-approve -no-color tfplan
+
+      # - name: Update kubeconfig
+      #   run: aws eks update-kubeconfig --region ${{ env.TF_VAR_aws_region}} --name ${{ env.KUBE_CLUSTER_NAME}}
+
+      # - name: Deploy to EKS
+      #   run: |
+      #     sed 's/-dev/-staging/' kube/04_fastapi.yaml
+      #     sed 's/-dev/-staging/' kube/05_nginx.yaml
+      #     kubectl apply -f ${{ env.KUBE_DIR }}
+
+      - name: Send email notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "${{ job.status }} - ${{ github.workflow }}: ${{ vars.PROJECT}} ${{vars.APP}} (${{vars.ENV}})"
+          to: ${{ secrets.EMAIL_USERNAME }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          html_body: |
+            <h2>GitHub Actions CI/CD Notification</h2>
+            <p><b>Project</b>: ${{ vars.PROJECT}}</p>
+            <p><b>Application</b>: ${{ vars.APP}}</p>
+            <p><b>Repository</b>: ${{ github.repository }}</p>
+            <p><b>Env</b>: ${{ vars.ENV }}</p>
+            <p><b>Job</b>: ${{ github.job }}</p>
+            <p><b>Status</b>: ${{ job.status }}</p>
+            <p><b>Branch</b>: ${{ github.ref }}</p>
+            <p><b>Workflow</b>: ${{ github.workflow }}</p>
+            <p><b>Commit</b>: ${{ github.sha }}</p>
+            <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Run</a></p>
