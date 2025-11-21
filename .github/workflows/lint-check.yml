@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    environment: api-dev
+    environment: dev
     env:
       PYTHON_VERSION: 3.11
     defaults:
@@ -86,7 +86,7 @@ jobs:
     name: Terraform Validate
     needs: unit_test_fastapi
     runs-on: ubuntu-latest
-    environment: api-dev
+    environment: dev
     env:
       DIR_AWS_INFRA: aws/infra
       TF_LINT_VERSION: v0.53.0
