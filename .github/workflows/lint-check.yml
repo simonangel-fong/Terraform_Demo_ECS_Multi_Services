@@ -8,7 +8,7 @@ on:
     paths:
       - "app/**"
       - "aws/**"
-      - ".github/workflows/feature-api-dev.yml"
+      - ".github/workflows/lint-check.yml"
   pull_request:
     branches:
       - "master"
